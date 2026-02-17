@@ -20,7 +20,7 @@ resource "azurerm_databricks_workspace" "main" {
     public_subnet_network_security_group_association_id  = var.public_subnet_nsg_id
     private_subnet_network_security_group_association_id = var.private_subnet_nsg_id
     no_public_ip                                         = var.environment == "prod" ? true : false
-    storage_account_name                                 = "dbxsa${replace(var.workspace_name, "-", "")}"
+    storage_account_name                                 = substr("dbxsa${replace(var.workspace_name, "-", "")}", 0, 24)
   }
 
   tags = var.tags

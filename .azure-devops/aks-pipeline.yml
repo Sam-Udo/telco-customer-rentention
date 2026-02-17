@@ -34,6 +34,8 @@ variables:
 stages:
   - stage: BuildAndPush
     displayName: "Build & Push Docker Images"
+    variables:
+      - group: aks-dev
     jobs:
       - job: BuildImages
         steps:
@@ -120,6 +122,8 @@ stages:
   - stage: SmokeTestDev
     displayName: "Smoke Test — DEV"
     dependsOn: DeployDev
+    variables:
+      - group: aks-dev
     jobs:
       - job: RunSmokeTests
         steps:
