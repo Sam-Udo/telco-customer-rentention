@@ -9,7 +9,7 @@ databricks_sku     = "premium"
 metastore_id       = "" # Set via TF_VAR_metastore_id
 
 # AKS node pool sizing
-aks_kubernetes_version = "1.29"
+aks_kubernetes_version = "1.30"
 aks_system_vm_size     = "Standard_DS2_v2"
 aks_system_min_nodes   = 1
 aks_system_max_nodes   = 3
