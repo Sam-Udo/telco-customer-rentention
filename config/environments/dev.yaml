@@ -1,0 +1,40 @@
+# Environment Config: DEV
+# Used by deployment scripts and notebooks to parameterise for environment
+
+environment: dev
+
+# Unity Catalog
+catalog: uk_telecoms_dev
+schemas:
+  bronze: bronze
+  silver: silver
+  gold: gold
+  ml: ml
+
+# Data paths (DEV uses a smaller sample or the same data in a dev storage account)
+landing_path: "/mnt/landing-dev"
+
+# Cluster sizing (smaller for cost)
+clusters:
+  etl:
+    num_workers: 2
+    node_type_id: "Standard_DS3_v2"
+    spark_version: "14.3.x-scala2.12"
+  ml:
+    num_workers: 1
+    node_type_id: "Standard_DS3_v2"
+    spark_version: "14.3.x-ml-scala2.12"
+
+# Workflow schedule (paused in dev — run manually)
+schedule:
+  pause_status: "PAUSED"
+
+# Model registry
+model_prefix: "uk_telecoms_dev.ml"
+
+# Feature Store
+feature_table: "uk_telecoms_dev.gold.churn_features"
+
+# Monitoring (disabled in dev)
+monitoring:
+  enabled: false

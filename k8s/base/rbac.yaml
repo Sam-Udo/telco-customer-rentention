@@ -1,0 +1,76 @@
+
+# RBAC — Least-privilege access control
+
+# Defines minimal permissions required for API and Dashboard workloads.
+
+---
+# Role for API pods
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: churn-api-role
+  namespace: telco-churn
+  labels:
+    app: churn-api
+    app.kubernetes.io/part-of: telco-churn
+rules:
+  # Read config from ConfigMap
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["churn-config"]
+    verbs: ["get"]
+
+---
+# RoleBinding for API
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: churn-api-rolebinding
+  namespace: telco-churn
+  labels:
+    app: churn-api
+    app.kubernetes.io/part-of: telco-churn
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: churn-api-role
+subjects:
+  - kind: ServiceAccount
+    name: churn-api-sa
+    namespace: telco-churn
+
+---
+# Role for Dashboard pods
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: churn-dashboard-role
+  namespace: telco-churn
+  labels:
+    app: churn-dashboard
+    app.kubernetes.io/part-of: telco-churn
+rules:
+  # Read config from ConfigMap (if needed)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["churn-config"]
+    verbs: ["get"]
+
+---
+# RoleBinding for Dashboard
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: churn-dashboard-rolebinding
+  namespace: telco-churn
+  labels:
+    app: churn-dashboard
+    app.kubernetes.io/part-of: telco-churn
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: churn-dashboard-role
+subjects:
+  - kind: ServiceAccount
+    name: churn-dashboard-sa
+    namespace: telco-churn

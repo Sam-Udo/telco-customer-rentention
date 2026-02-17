@@ -1,0 +1,25 @@
+
+# ServiceMonitor — Prometheus scraping for Churn API
+
+# Requires: Prometheus Operator installed in the cluster
+# (helm install prometheus prometheus-community/kube-prometheus-stack)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: churn-api-monitor
+  namespace: telco-churn
+  labels:
+    app: churn-api
+    app.kubernetes.io/part-of: telco-churn
+spec:
+  selector:
+    matchLabels:
+      app: churn-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+      - telco-churn

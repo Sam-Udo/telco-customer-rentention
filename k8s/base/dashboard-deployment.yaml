@@ -1,0 +1,99 @@
+
+# Churn Dashboard — Kubernetes Deployment
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: churn-dashboard
+  namespace: telco-churn
+  labels:
+    app: churn-dashboard
+    component: dashboard
+    app.kubernetes.io/name: churn-dashboard
+    app.kubernetes.io/part-of: telco-churn
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: churn-dashboard
+  template:
+    metadata:
+      labels:
+        app: churn-dashboard
+        component: dashboard
+    spec:
+      serviceAccountName: churn-dashboard-sa
+
+      # Pod-level security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: churn-dashboard
+          image: ACR_PLACEHOLDER/churn-dashboard:latest
+
+          # Container-level security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+
+          ports:
+            - containerPort: 8501
+              name: http
+              protocol: TCP
+
+          env:
+            - name: API_BASE_URL
+              value: "http://churn-api-service:8000"
+            - name: SCORES_CSV_PATH
+              value: "/data/churn_scores.csv"
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "768Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+
+          livenessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+            timeoutSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 5
+            timeoutSeconds: 10
+
+          volumeMounts:
+            - name: scores-volume
+              mountPath: /data
+              readOnly: true
+            - name: streamlit-cache
+              mountPath: /app/.streamlit/cache
+
+      volumes:
+        - name: scores-volume
+          persistentVolumeClaim:
+            claimName: scores-pvc
+        - name: streamlit-cache
+          emptyDir: {}

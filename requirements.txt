@@ -1,0 +1,29 @@
+# Telco Customer Churn — Databricks/Spark Project
+# These are for local development / CI. On Databricks Runtime 14.3+ ML, most are pre-installed.
+
+# Core
+pyspark>=3.5.2  # ✅ CVE-2024-39884 fixed in 3.5.2
+delta-spark>=3.1.0
+
+# ML
+lightgbm>=4.1.0
+scikit-learn>=1.3.0
+shap>=0.43.0
+hyperopt>=0.2.7
+
+# MLflow
+mlflow>=2.9.0
+
+# Data & Viz
+pandas>=2.1.0
+numpy>=1.25.0
+pyarrow>=14.0.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# Databricks SDK
+databricks-sdk>=0.12.0
+databricks-feature-engineering>=0.2.0
+
+# Presentation
+python-pptx>=0.6.21

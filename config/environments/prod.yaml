@@ -1,0 +1,43 @@
+# Environment Config: PRODUCTION
+# Full production configuration — live customer scoring
+
+environment: prod
+
+# Unity Catalog
+catalog: uk_telecoms
+schemas:
+  bronze: bronze
+  silver: silver
+  gold: gold
+  ml: ml
+
+# Data paths (production storage account)
+landing_path: "/mnt/landing"
+
+# Cluster sizing (production scale)
+clusters:
+  etl:
+    num_workers: 4
+    node_type_id: "Standard_DS4_v2"
+    spark_version: "14.3.x-scala2.12"
+  ml:
+    num_workers: 2
+    node_type_id: "Standard_DS4_v2"
+    spark_version: "14.3.x-ml-scala2.12"
+
+# Workflow schedule (LIVE — 1st of every month at 06:00 UTC)
+schedule:
+  quartz_cron_expression: "0 0 6 1 * ?"
+  timezone_id: "Europe/London"
+  pause_status: "UNPAUSED"
+
+# Model registry
+model_prefix: "uk_telecoms.ml"
+
+# Feature Store
+feature_table: "uk_telecoms.gold.churn_features"
+
+# Monitoring (fully enabled with alerts)
+monitoring:
+  enabled: true
+  alert_email: "data-team@uktelecomsltd.co.uk"

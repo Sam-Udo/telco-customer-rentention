@@ -1,0 +1,36 @@
+
+# Pod Disruption Budgets — Ensure availability during disruptions
+
+# Protects against simultaneous pod evictions during node drains,
+# cluster upgrades, or spot instance terminations.
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: churn-api-pdb
+  namespace: telco-churn
+  labels:
+    app: churn-api
+    app.kubernetes.io/part-of: telco-churn
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: churn-api
+  unhealthyPodEvictionPolicy: AlwaysAllow
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: churn-dashboard-pdb
+  namespace: telco-churn
+  labels:
+    app: churn-dashboard
+    app.kubernetes.io/part-of: telco-churn
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: churn-dashboard
+  unhealthyPodEvictionPolicy: AlwaysAllow

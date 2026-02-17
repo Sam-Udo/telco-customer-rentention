@@ -1,0 +1,86 @@
+# Feature Configuration — Telco Churn Prediction
+# Central config for feature definitions, horizons, and model parameters
+
+catalog: uk_telecoms
+
+schemas:
+  bronze: bronze
+  silver: silver
+  gold: gold
+  ml: ml
+
+# Multi-horizon prediction windows (days)
+horizons: [30, 60, 90]
+
+# Temporal split boundaries
+splits:
+  train_end: "2024-04-01"
+  validation_end: "2024-07-01"
+  # test: everything after validation_end
+
+# Feature definitions
+features:
+  numeric:
+    - contract_status_ord
+    - contract_dd_cancels
+    - dd_cancel_60_day
+    - ooc_days
+    - speed
+    - line_speed
+    - speed_gap_pct
+    - tenure_days
+    - calls_30d
+    - calls_90d
+    - calls_180d
+    - loyalty_calls_90d
+    - complaint_calls_90d
+    - tech_calls_90d
+    - avg_talk_time
+    - avg_hold_time
+    - max_hold_time
+    - days_since_last_call
+    - monthly_download_mb
+    - monthly_upload_mb
+    - monthly_total_mb
+    - avg_daily_download_mb
+    - std_daily_total_mb
+    - active_days_in_month
+    - peak_daily_total_mb
+    - usage_mom_change
+    - usage_vs_3mo_avg
+    - prior_cease_count
+    - days_since_last_cease
+
+  categorical:
+    - technology
+    - sales_channel
+    - tenure_bucket
+
+# Call type flags (Silver layer)
+call_type_flags:
+  is_loyalty_call: "Loyalty"
+  is_complaint_call: "Complaints"
+  is_tech_call: "Tech"
+
+# Lookback windows for call features (days)
+call_lookback_windows: [30, 90, 180]
+
+# LightGBM base parameters
+lgbm_params:
+  objective: binary
+  metric: average_precision
+  learning_rate: 0.05
+  num_leaves: 63
+  max_depth: 7
+  min_child_samples: 50
+  subsample: 0.8
+  colsample_bytree: 0.8
+  n_estimators: 1000
+  early_stopping_rounds: 50
+  verbose: -1
+
+# Risk tier thresholds
+risk_tiers:
+  red_threshold: 0.5    # 30d prob above this → RED
+  amber_threshold: 0.5  # 60d prob above this → AMBER
+  yellow_threshold: 0.5 # 90d prob above this → YELLOW

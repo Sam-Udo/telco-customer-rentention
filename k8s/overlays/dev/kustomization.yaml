@@ -1,0 +1,104 @@
+# DEV environment overlay — minimal resources, 1 replica
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namePrefix: dev-
+
+patches:
+  # API: 1 replica, lower resources
+  - target:
+      kind: Deployment
+      name: churn-api
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "100m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "256Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "512Mi"
+
+  # Dashboard: 1 replica
+  - target:
+      kind: Deployment
+      name: churn-dashboard
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "100m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "256Mi"
+
+  # HPA: min 1, max 2
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: churn-api-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: churn-dashboard-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+
+  # Dashboard: fix API_BASE_URL (namePrefix changes service name to dev-churn-api-service)
+  - target:
+      kind: Deployment
+      name: churn-dashboard
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: "http://dev-churn-api-service:8000"
+
+  # API: fix ALLOWED_ORIGINS (namePrefix changes service name to dev-churn-dashboard-service)
+  - target:
+      kind: Deployment
+      name: churn-api
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/5/value
+        value: "http://dev-churn-dashboard-service:8501"
+
+  # Ingress: update service names with dev- prefix
+  - target:
+      kind: Ingress
+      name: churn-ingress
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/http/paths/0/backend/service/name
+        value: "dev-churn-api-service"
+      - op: replace
+        path: /spec/rules/0/http/paths/1/backend/service/name
+        value: "dev-churn-dashboard-service"
+
+images:
+  - name: ACR_PLACEHOLDER/churn-api
+    newName: telcochurncrdev.azurecr.io/churn-api
+  - name: ACR_PLACEHOLDER/churn-dashboard
+    newName: telcochurncrdev.azurecr.io/churn-dashboard

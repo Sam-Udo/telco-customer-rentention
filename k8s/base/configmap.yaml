@@ -1,0 +1,15 @@
+
+# ConfigMap — Risk tier thresholds and shared configuration
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: churn-config
+  namespace: telco-churn
+  labels:
+    app.kubernetes.io/part-of: telco-churn
+data:
+  red_threshold: "0.5"
+  amber_threshold: "0.5"
+  yellow_threshold: "0.5"
+  max_batch_size: "1000"

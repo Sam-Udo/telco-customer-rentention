@@ -1,0 +1,194 @@
+# ══════════════════════════════════════════════════════════════
+# CD Pipeline — Continuous Deployment (dev → staging → prod)
+# ══════════════════════════════════════════════════════════════
+# Trigger: Artifact from CI pipeline on main branch
+# Flow:    Deploy to DEV (auto) → STAGING (auto + integration test) → PROD (manual approval)
+#
+# Each environment uses:
+#   - Its own Databricks workspace (or shared workspace with catalog isolation)
+#   - Its own Unity Catalog: uk_telecoms_dev / uk_telecoms_staging / uk_telecoms
+#   - Variable group with workspace-specific secrets
+
+trigger: none  # Triggered by CI artifact, not code push
+
+resources:
+  pipelines:
+    - pipeline: ci-build
+      source: "telco-churn-ci"    # Name of the CI pipeline
+      trigger:
+        branches:
+          include:
+            - main
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  - name: pythonVersion
+    value: "3.11"
+
+stages:
+  # ─────────────────────────────────────────────
+  # STAGE 1: Deploy to DEV (automatic)
+  # ─────────────────────────────────────────────
+  - stage: DeployDev
+    displayName: "Deploy to DEV"
+    variables:
+      - group: databricks-dev      # Contains DATABRICKS_HOST, DATABRICKS_TOKEN
+    jobs:
+      - deployment: DeployToDev
+        displayName: "Deploy to DEV workspace"
+        environment: "telco-churn-dev"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: ci-build
+                  artifact: telco-churn-release
+
+                - task: UsePythonVersion@0
+                  inputs:
+                    versionSpec: $(pythonVersion)
+
+                - script: |
+                    pip install databricks-cli databricks-sdk
+                  displayName: "Install Databricks CLI"
+
+                - script: |
+                    export DATABRICKS_HOST=$(DATABRICKS_HOST)
+                    export DATABRICKS_TOKEN=$(DATABRICKS_TOKEN)
+                    export TARGET_ENV=dev
+                    export CATALOG_NAME=uk_telecoms_dev
+
+                    bash $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/deploy_notebooks.sh
+                  displayName: "Deploy notebooks to DEV"
+
+                - script: |
+                    export DATABRICKS_HOST=$(DATABRICKS_HOST)
+                    export DATABRICKS_TOKEN=$(DATABRICKS_TOKEN)
+                    export TARGET_ENV=dev
+
+                    bash $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/deploy_workflows.sh
+                  displayName: "Deploy workflow to DEV"
+
+  # ─────────────────────────────────────────────
+  # STAGE 2: Integration Tests on DEV
+  # ─────────────────────────────────────────────
+  - stage: IntegrationTestDev
+    displayName: "Integration Tests (DEV)"
+    dependsOn: DeployDev
+    variables:
+      - group: databricks-dev
+    jobs:
+      - job: RunIntegrationTests
+        displayName: "Run Databricks integration tests"
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(pythonVersion)
+
+          - script: |
+              pip install databricks-sdk requests
+            displayName: "Install SDK"
+
+          - script: |
+              export DATABRICKS_HOST=$(DATABRICKS_HOST)
+              export DATABRICKS_TOKEN=$(DATABRICKS_TOKEN)
+
+              python $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/run_integration_tests.py
+            displayName: "Run integration test notebook on DEV cluster"
+
+  # ─────────────────────────────────────────────
+  # STAGE 3: Deploy to STAGING (automatic after DEV passes)
+  # ─────────────────────────────────────────────
+  - stage: DeployStaging
+    displayName: "Deploy to STAGING"
+    dependsOn: IntegrationTestDev
+    variables:
+      - group: databricks-staging   # Contains DATABRICKS_HOST, DATABRICKS_TOKEN
+    jobs:
+      - deployment: DeployToStaging
+        displayName: "Deploy to STAGING workspace"
+        environment: "telco-churn-staging"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: ci-build
+                  artifact: telco-churn-release
+
+                - task: UsePythonVersion@0
+                  inputs:
+                    versionSpec: $(pythonVersion)
+
+                - script: |
+                    pip install databricks-cli databricks-sdk
+                  displayName: "Install Databricks CLI"
+
+                - script: |
+                    export DATABRICKS_HOST=$(DATABRICKS_HOST)
+                    export DATABRICKS_TOKEN=$(DATABRICKS_TOKEN)
+                    export TARGET_ENV=staging
+                    export CATALOG_NAME=uk_telecoms_staging
+
+                    bash $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/deploy_notebooks.sh
+                  displayName: "Deploy notebooks to STAGING"
+
+                - script: |
+                    export DATABRICKS_HOST=$(DATABRICKS_HOST)
+                    export DATABRICKS_TOKEN=$(DATABRICKS_TOKEN)
+                    export TARGET_ENV=staging
+
+                    bash $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/deploy_workflows.sh
+                  displayName: "Deploy workflow to STAGING"
+
+  # ─────────────────────────────────────────────
+  # STAGE 4: Deploy to PROD (manual approval required)
+  # ─────────────────────────────────────────────
+  - stage: DeployProd
+    displayName: "Deploy to PRODUCTION"
+    dependsOn: DeployStaging
+    variables:
+      - group: databricks-prod     # Contains DATABRICKS_HOST, DATABRICKS_TOKEN
+    jobs:
+      - deployment: DeployToProd
+        displayName: "Deploy to PRODUCTION workspace"
+        environment: "telco-churn-prod"   # ← Has approval gate configured in ADO
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: ci-build
+                  artifact: telco-churn-release
+
+                - task: UsePythonVersion@0
+                  inputs:
+                    versionSpec: $(pythonVersion)
+
+                - script: |
+                    pip install databricks-cli databricks-sdk
+                  displayName: "Install Databricks CLI"
+
+                - script: |
+                    export DATABRICKS_HOST=$(DATABRICKS_HOST)
+                    export DATABRICKS_TOKEN=$(DATABRICKS_TOKEN)
+                    export TARGET_ENV=prod
+                    export CATALOG_NAME=uk_telecoms
+
+                    bash $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/deploy_notebooks.sh
+                  displayName: "Deploy notebooks to PROD"
+
+                - script: |
+                    export DATABRICKS_HOST=$(DATABRICKS_HOST)
+                    export DATABRICKS_TOKEN=$(DATABRICKS_TOKEN)
+                    export TARGET_ENV=prod
+
+                    bash $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/deploy_workflows.sh
+                  displayName: "Deploy workflow to PROD"
+
+                - script: |
+                    echo "=== PRODUCTION DEPLOYMENT COMPLETE ==="
+                    echo "Build: $(Build.BuildId)"
+                    echo "Source: $(Build.SourceVersion)"
+                    echo "Deployed at: $(date -u)"
+                  displayName: "Deployment confirmation"

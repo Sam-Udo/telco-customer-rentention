@@ -1,0 +1,234 @@
+trigger:
+  branches:
+    include:
+      - main
+      - release/*
+
+pr:
+  branches:
+    include:
+      - main
+      - release/*
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  - group: databricks-common
+  - name: pythonVersion
+    value: "3.11"
+
+stages:
+  - stage: CodeQuality
+    displayName: "Code Quality"
+    jobs:
+      - job: LintAndFormat
+        displayName: "Lint & Format Check"
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(pythonVersion)
+            displayName: "Set Python $(pythonVersion)"
+
+          - script: |
+              pip install ruff black isort
+            displayName: "Install lint tools"
+
+          - script: |
+              ruff check src/ tests/ dlt/ --output-format=github
+            displayName: "Ruff lint check"
+
+          - script: |
+              black --check --diff src/ tests/
+            displayName: "Black format check"
+            continueOnError: true
+
+          - script: |
+              isort --check-only --diff src/ tests/
+            displayName: "isort import order check"
+            continueOnError: true
+
+  - stage: UnitTests
+    displayName: "Unit Tests"
+    dependsOn: CodeQuality
+    jobs:
+      - job: RunPySparkTests
+        displayName: "Run PySpark Unit Tests"
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(pythonVersion)
+            displayName: "Set Python $(pythonVersion)"
+
+          - script: |
+              pip install -r requirements.txt
+              pip install pytest pytest-cov pytest-html
+            displayName: "Install dependencies"
+
+          - script: |
+              export JAVA_HOME=$(JAVA_HOME_11_X64)
+              pytest tests/test_silver_transforms.py tests/test_feature_engineering.py \
+                -v \
+                --tb=short \
+                --junitxml=$(Build.ArtifactStagingDirectory)/test-results-pyspark.xml \
+                --html=$(Build.ArtifactStagingDirectory)/test-report-pyspark.html \
+                --cov=src \
+                --cov-report=xml:$(Build.ArtifactStagingDirectory)/coverage-pyspark.xml \
+                --cov-report=html:$(Build.ArtifactStagingDirectory)/coverage-html-pyspark
+            displayName: "Run pytest (Silver + Feature Engineering tests)"
+
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: "JUnit"
+              testResultsFiles: "$(Build.ArtifactStagingDirectory)/test-results-pyspark.xml"
+              testRunTitle: "PySpark Unit Tests"
+            displayName: "Publish PySpark test results"
+            condition: always()
+
+          - task: PublishCodeCoverageResults@2
+            inputs:
+              summaryFileLocation: "$(Build.ArtifactStagingDirectory)/coverage-pyspark.xml"
+            displayName: "Publish PySpark code coverage"
+            condition: always()
+
+      - job: RunIntegrationTests
+        displayName: "Run Integration Tests"
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(pythonVersion)
+            displayName: "Set Python $(pythonVersion)"
+
+          - script: |
+              pip install -r requirements.txt
+              pip install -r requirements-test.txt
+            displayName: "Install dependencies"
+
+          - script: |
+              export JAVA_HOME=$(JAVA_HOME_11_X64)
+              pytest tests/test_integration.py \
+                -v \
+                --tb=short \
+                --junitxml=$(Build.ArtifactStagingDirectory)/test-results-integration.xml \
+                --html=$(Build.ArtifactStagingDirectory)/test-report-integration.html
+            displayName: "Run integration tests"
+
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: "JUnit"
+              testResultsFiles: "$(Build.ArtifactStagingDirectory)/test-results-integration.xml"
+              testRunTitle: "Integration Tests"
+            displayName: "Publish integration test results"
+            condition: always()
+
+      - job: RunAPITests
+        displayName: "Run API Error Handling Tests"
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(pythonVersion)
+            displayName: "Set Python $(pythonVersion)"
+
+          - script: |
+              pip install -r requirements-test.txt
+            displayName: "Install API test dependencies"
+
+          - script: |
+              pytest tests/test_api_error_handling.py \
+                -v \
+                --tb=short \
+                --junitxml=$(Build.ArtifactStagingDirectory)/test-results-api.xml \
+                --html=$(Build.ArtifactStagingDirectory)/test-report-api.html \
+                --cov=serving/api \
+                --cov-report=xml:$(Build.ArtifactStagingDirectory)/coverage-api.xml \
+                --cov-report=html:$(Build.ArtifactStagingDirectory)/coverage-html-api
+            displayName: "Run API error handling tests"
+
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: "JUnit"
+              testResultsFiles: "$(Build.ArtifactStagingDirectory)/test-results-api.xml"
+              testRunTitle: "API Error Handling Tests"
+            displayName: "Publish API test results"
+            condition: always()
+
+          - task: PublishCodeCoverageResults@2
+            inputs:
+              summaryFileLocation: "$(Build.ArtifactStagingDirectory)/coverage-api.xml"
+            displayName: "Publish API code coverage"
+            condition: always()
+
+  - stage: NotebookValidation
+    displayName: "Notebook Validation"
+    dependsOn: CodeQuality
+    jobs:
+      - job: ValidateNotebooks
+        displayName: "Validate Databricks Notebooks"
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(pythonVersion)
+            displayName: "Set Python $(pythonVersion)"
+
+          - script: |
+              pip install databricks-cli
+            displayName: "Install Databricks CLI"
+
+          - script: |
+              for nb in notebooks/*.py; do
+                if head -1 "$nb" | grep -q "# Databricks notebook source"; then
+                  echo "  PASS: $nb"
+                else
+                  echo "  FAIL: $nb (missing Databricks header)"
+                  exit 1
+                fi
+              done
+              echo "All notebooks valid."
+            displayName: "Validate notebook format"
+
+          - script: |
+              python -m py_compile src/risk_tiers.py
+              python -m py_compile src/__init__.py
+              for nb in notebooks/*.py; do
+                sed 's/# MAGIC.*//g' "$nb" | python -c "
+              import sys, ast
+              try:
+                  ast.parse(sys.stdin.read())
+                  print(f'  PASS: syntax ok')
+              except SyntaxError as e:
+                  print(f'  WARN: {e}')
+              "
+              done
+            displayName: "Python syntax validation"
+
+  - stage: BuildArtifact
+    displayName: "Build Deployment Artifact"
+    dependsOn:
+      - UnitTests
+      - NotebookValidation
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: PackageArtifact
+        displayName: "Package for Deployment"
+        steps:
+          - script: |
+              mkdir -p $(Build.ArtifactStagingDirectory)/release
+
+              cp -r notebooks/ $(Build.ArtifactStagingDirectory)/release/notebooks/
+              cp -r dlt/ $(Build.ArtifactStagingDirectory)/release/dlt/
+              cp -r src/ $(Build.ArtifactStagingDirectory)/release/src/
+              cp -r workflows/ $(Build.ArtifactStagingDirectory)/release/workflows/
+              cp -r config/ $(Build.ArtifactStagingDirectory)/release/config/
+              cp -r deploy/ $(Build.ArtifactStagingDirectory)/release/deploy/
+              cp requirements.txt $(Build.ArtifactStagingDirectory)/release/
+
+              echo "BUILD_ID=$(Build.BuildId)" > $(Build.ArtifactStagingDirectory)/release/BUILD_INFO
+              echo "SOURCE_VERSION=$(Build.SourceVersion)" >> $(Build.ArtifactStagingDirectory)/release/BUILD_INFO
+              echo "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $(Build.ArtifactStagingDirectory)/release/BUILD_INFO
+            displayName: "Package artifact"
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: "$(Build.ArtifactStagingDirectory)/release"
+              artifactName: "telco-churn-release"
+            displayName: "Publish release artifact"

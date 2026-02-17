@@ -1,0 +1,183 @@
+# ══════════════════════════════════════════════════════════════
+# Infrastructure Pipeline — Terraform Plan & Apply
+# ══════════════════════════════════════════════════════════════
+# Provisions all Azure resources (networking, storage, Databricks,
+# Unity Catalog, Key Vault, monitoring) per environment.
+#
+# Flow: terraform plan (on PR) → terraform apply (on merge to main)
+# Environments: DEV → STAGING → PROD (with approval gates)
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - infrastructure/**
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - infrastructure/**
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  - name: terraformVersion
+    value: "1.7.0"
+  - name: workingDirectory
+    value: "$(System.DefaultWorkingDirectory)/infrastructure"
+
+stages:
+  # ─────────────────────────────────────────────
+  # STAGE 1: Terraform Validate & Lint
+  # ─────────────────────────────────────────────
+  - stage: Validate
+    displayName: "Terraform Validate"
+    jobs:
+      - job: ValidateTerraform
+        steps:
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: $(terraformVersion)
+
+          - script: |
+              cd $(workingDirectory)
+              terraform init -backend=false
+              terraform validate
+            displayName: "terraform validate"
+
+          - script: |
+              cd $(workingDirectory)
+              terraform fmt -check -recursive
+            displayName: "terraform fmt check"
+
+  # ─────────────────────────────────────────────
+  # STAGE 2: Plan & Apply DEV
+  # ─────────────────────────────────────────────
+  - stage: DeployDev
+    displayName: "Deploy Infra — DEV"
+    dependsOn: Validate
+    variables:
+      - group: azure-infra-dev
+    jobs:
+      - deployment: TerraformApplyDev
+        environment: "telco-churn-infra-dev"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: TerraformInstaller@1
+                  inputs:
+                    terraformVersion: $(terraformVersion)
+
+                - script: |
+                    cd $(workingDirectory)
+                    terraform init \
+                      -backend-config=environments/dev/backend.tfvars \
+                      -backend-config="access_key=$(TF_STATE_ACCESS_KEY)"
+                  displayName: "terraform init (DEV)"
+
+                - script: |
+                    cd $(workingDirectory)
+                    terraform plan \
+                      -var-file=environments/dev/terraform.tfvars \
+                      -var="subscription_id=$(AZURE_SUBSCRIPTION_ID)" \
+                      -out=dev.tfplan
+                  displayName: "terraform plan (DEV)"
+
+                - script: |
+                    cd $(workingDirectory)
+                    terraform apply -auto-approve dev.tfplan
+                  displayName: "terraform apply (DEV)"
+                  condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+
+  # ─────────────────────────────────────────────
+  # STAGE 3: Plan & Apply STAGING
+  # ─────────────────────────────────────────────
+  - stage: DeployStaging
+    displayName: "Deploy Infra — STAGING"
+    dependsOn: DeployDev
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    variables:
+      - group: azure-infra-staging
+    jobs:
+      - deployment: TerraformApplyStaging
+        environment: "telco-churn-infra-staging"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: TerraformInstaller@1
+                  inputs:
+                    terraformVersion: $(terraformVersion)
+
+                - script: |
+                    cd $(workingDirectory)
+                    terraform init \
+                      -backend-config=environments/staging/backend.tfvars \
+                      -backend-config="access_key=$(TF_STATE_ACCESS_KEY)"
+                  displayName: "terraform init (STAGING)"
+
+                - script: |
+                    cd $(workingDirectory)
+                    terraform plan \
+                      -var-file=environments/staging/terraform.tfvars \
+                      -var="subscription_id=$(AZURE_SUBSCRIPTION_ID)" \
+                      -out=staging.tfplan
+                  displayName: "terraform plan (STAGING)"
+
+                - script: |
+                    cd $(workingDirectory)
+                    terraform apply -auto-approve staging.tfplan
+                  displayName: "terraform apply (STAGING)"
+
+  # ─────────────────────────────────────────────
+  # STAGE 4: Plan & Apply PROD (manual approval)
+  # ─────────────────────────────────────────────
+  - stage: DeployProd
+    displayName: "Deploy Infra — PRODUCTION"
+    dependsOn: DeployStaging
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    variables:
+      - group: azure-infra-prod
+    jobs:
+      - deployment: TerraformApplyProd
+        environment: "telco-churn-infra-prod"  # ← Manual approval gate
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: TerraformInstaller@1
+                  inputs:
+                    terraformVersion: $(terraformVersion)
+
+                - script: |
+                    cd $(workingDirectory)
+                    terraform init \
+                      -backend-config=environments/prod/backend.tfvars \
+                      -backend-config="access_key=$(TF_STATE_ACCESS_KEY)"
+                  displayName: "terraform init (PROD)"
+
+                - script: |
+                    cd $(workingDirectory)
+                    terraform plan \
+                      -var-file=environments/prod/terraform.tfvars \
+                      -var="subscription_id=$(AZURE_SUBSCRIPTION_ID)" \
+                      -out=prod.tfplan
+                  displayName: "terraform plan (PROD)"
+
+                - script: |
+                    cd $(workingDirectory)
+                    terraform apply -auto-approve prod.tfplan
+                  displayName: "terraform apply (PROD)"

@@ -1,0 +1,67 @@
+# Data files — never commit raw data
+*.csv
+*.parquet
+*.xlsx
+*.xls
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Environments
+.env
+.env.*
+.venv/
+venv/
+env/
+
+# Terraform
+infrastructure/.terraform/
+infrastructure/**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+.terraform.lock.hcl
+crash.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Pytest
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Docs — only keep README.md and docs/LLD.md
+CLAUDE.md
+DEPLOYMENT-QUICKSTART.md
+docs/DEPLOYMENT.md
+docs/DOMAIN-SETUP.md
+.azure-devops/variable-groups.md
+
+# Assessment docs
+Data Scientist - Assessment.docx
+
+# Local dev notebooks (main Databricks versions are the source of truth)
+notebooks/*_local*.py
+notebooks/run_*.py
+
+# Model artifacts (large binaries)
+*.txt.bak
+/models/

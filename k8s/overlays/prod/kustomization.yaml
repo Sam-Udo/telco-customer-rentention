@@ -1,0 +1,114 @@
+# PRODUCTION environment overlay — full scale, HA, aggressive auto-scaling
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namePrefix: prod-
+
+patches:
+  # API: 3 replicas baseline, production resources
+  - target:
+      kind: Deployment
+      name: churn-api
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "1Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "2000m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "2Gi"
+
+  # Dashboard: 2 replicas baseline, production resources
+  - target:
+      kind: Deployment
+      name: churn-dashboard
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "1Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "1000m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "2Gi"
+
+  # HPA: API scales to 10, aggressive for production traffic
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: churn-api-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 3
+      - op: replace
+        path: /spec/maxReplicas
+        value: 10
+
+  # HPA: Dashboard scales to 6
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: churn-dashboard-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 2
+      - op: replace
+        path: /spec/maxReplicas
+        value: 6
+
+  # Dashboard: fix API_BASE_URL (namePrefix changes service name to prod-churn-api-service)
+  - target:
+      kind: Deployment
+      name: churn-dashboard
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: "http://prod-churn-api-service:8000"
+
+  # API: fix ALLOWED_ORIGINS (namePrefix changes service name to prod-churn-dashboard-service)
+  - target:
+      kind: Deployment
+      name: churn-api
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/5/value
+        value: "http://prod-churn-dashboard-service:8501"
+
+  # Ingress: use letsencrypt-prod and update service names with prod- prefix
+  - target:
+      kind: Ingress
+      name: churn-ingress
+    patch: |-
+      - op: replace
+        path: /metadata/annotations/cert-manager.io~1cluster-issuer
+        value: "letsencrypt-prod"
+      - op: replace
+        path: /spec/rules/0/http/paths/0/backend/service/name
+        value: "prod-churn-api-service"
+      - op: replace
+        path: /spec/rules/0/http/paths/1/backend/service/name
+        value: "prod-churn-dashboard-service"
+
+images:
+  - name: ACR_PLACEHOLDER/churn-api
+    newName: telcochurnsacrprod.azurecr.io/churn-api
+  - name: ACR_PLACEHOLDER/churn-dashboard
+    newName: telcochurnsacrprod.azurecr.io/churn-dashboard

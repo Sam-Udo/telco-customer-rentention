@@ -1,0 +1,86 @@
+# STAGING environment overlay — prod-like resources, 2 replicas
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namePrefix: staging-
+
+patches:
+  # API: 2 replicas (same as prod baseline)
+  - target:
+      kind: Deployment
+      name: churn-api
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+
+  # Dashboard: 2 replicas
+  - target:
+      kind: Deployment
+      name: churn-dashboard
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+
+  # HPA: min 2, max 5
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: churn-api-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 2
+      - op: replace
+        path: /spec/maxReplicas
+        value: 5
+
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: churn-dashboard-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 2
+      - op: replace
+        path: /spec/maxReplicas
+        value: 3
+
+  # Dashboard: fix API_BASE_URL (namePrefix changes service name to staging-churn-api-service)
+  - target:
+      kind: Deployment
+      name: churn-dashboard
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: "http://staging-churn-api-service:8000"
+
+  # API: fix ALLOWED_ORIGINS (namePrefix changes service name to staging-churn-dashboard-service)
+  - target:
+      kind: Deployment
+      name: churn-api
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/5/value
+        value: "http://staging-churn-dashboard-service:8501"
+
+  # Ingress: update service names with staging- prefix
+  - target:
+      kind: Ingress
+      name: churn-ingress
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/http/paths/0/backend/service/name
+        value: "staging-churn-api-service"
+      - op: replace
+        path: /spec/rules/0/http/paths/1/backend/service/name
+        value: "staging-churn-dashboard-service"
+
+images:
+  - name: ACR_PLACEHOLDER/churn-api
+    newName: telcochurncrstaging.azurecr.io/churn-api
+  - name: ACR_PLACEHOLDER/churn-dashboard
+    newName: telcochurncrstaging.azurecr.io/churn-dashboard

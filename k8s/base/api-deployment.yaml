@@ -1,0 +1,127 @@
+
+# Churn Prediction API — Kubernetes Deployment
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: churn-api
+  namespace: telco-churn
+  labels:
+    app: churn-api
+    component: api
+    app.kubernetes.io/name: churn-api
+    app.kubernetes.io/part-of: telco-churn
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: churn-api
+  template:
+    metadata:
+      labels:
+        app: churn-api
+        component: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: churn-api-sa
+
+      # Pod-level security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: churn-api
+          image: ACR_PLACEHOLDER/churn-api:latest
+
+          # Container-level security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+
+          env:
+            - name: MODEL_DIR
+              value: "/models"
+            - name: MAX_BATCH_SIZE
+              value: "1000"
+            - name: RED_THRESHOLD
+              valueFrom:
+                configMapKeyRef:
+                  name: churn-config
+                  key: red_threshold
+            - name: AMBER_THRESHOLD
+              valueFrom:
+                configMapKeyRef:
+                  name: churn-config
+                  key: amber_threshold
+            - name: YELLOW_THRESHOLD
+              valueFrom:
+                configMapKeyRef:
+                  name: churn-config
+                  key: yellow_threshold
+            - name: ALLOWED_ORIGINS
+              value: "http://churn-dashboard-service:8501"
+
+          resources:
+            requests:
+              cpu: "300m"
+              memory: "768Mi"
+            limits:
+              cpu: "1500m"
+              memory: "1Gi"
+
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 12
+            timeoutSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 15
+            failureThreshold: 3
+            timeoutSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            periodSeconds: 10
+            failureThreshold: 5
+            timeoutSeconds: 10
+
+          volumeMounts:
+            - name: model-volume
+              mountPath: /models
+              readOnly: true
+            - name: tmp
+              mountPath: /app/tmp
+
+      volumes:
+        - name: model-volume
+          persistentVolumeClaim:
+            claimName: model-pvc
+        - name: tmp
+          emptyDir: {}

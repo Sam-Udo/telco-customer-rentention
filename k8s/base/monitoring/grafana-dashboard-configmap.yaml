@@ -1,0 +1,172 @@
+
+# Grafana Dashboard — Churn API Observability
+
+# Auto-provisioned when Grafana sidecar detects label grafana_dashboard: "1"
+# Metrics from serving/api/main.py (Prometheus format at /metrics)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: churn-grafana-dashboard
+  namespace: telco-churn
+  labels:
+    app.kubernetes.io/part-of: telco-churn
+    grafana_dashboard: "1"
+data:
+  churn-api-dashboard.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "links": [],
+      "panels": [
+        {
+          "title": "Request Rate (req/s)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "targets": [
+            {
+              "expr": "sum(rate(churn_api_requests_total[5m])) by (endpoint)",
+              "legendFormat": "{{ endpoint }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "reqps" }
+          }
+        },
+        {
+          "title": "Request Latency (P50 / P95 / P99)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(churn_api_request_duration_seconds_bucket[5m])) by (le))",
+              "legendFormat": "P50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(churn_api_request_duration_seconds_bucket[5m])) by (le))",
+              "legendFormat": "P95"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(churn_api_request_duration_seconds_bucket[5m])) by (le))",
+              "legendFormat": "P99"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "s" }
+          }
+        },
+        {
+          "title": "Error Rate (%)",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+          "targets": [
+            {
+              "expr": "sum(rate(churn_api_requests_total{status=\"error\"}[5m])) / sum(rate(churn_api_requests_total[5m])) * 100",
+              "legendFormat": "Error %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "red", "value": 5 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Models Loaded",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+          "targets": [
+            {
+              "expr": "up{job=\"churn-api-monitor\"}",
+              "legendFormat": "API Up"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+              ]
+            }
+          }
+        },
+        {
+          "title": "Risk Tier Distribution (last 1h)",
+          "type": "piechart",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "targets": [
+            {
+              "expr": "sum(increase(churn_api_risk_tier_total[1h])) by (tier)",
+              "legendFormat": "{{ tier }}"
+            }
+          ],
+          "options": {
+            "pieType": "donut",
+            "legend": { "displayMode": "table", "placement": "right" }
+          },
+          "fieldConfig": {
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "RED" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "AMBER" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "YELLOW" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "GREEN" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+            ]
+          }
+        },
+        {
+          "title": "Predictions by Horizon (last 1h)",
+          "type": "barchart",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+          "targets": [
+            {
+              "expr": "sum(increase(churn_api_predictions_total[1h])) by (horizon)",
+              "legendFormat": "{{ horizon }}d"
+            }
+          ]
+        },
+        {
+          "title": "Pod CPU Usage",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+          "targets": [
+            {
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"telco-churn\", container!=\"\"}[5m])) by (pod)",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "percentunit" }
+          }
+        },
+        {
+          "title": "Pod Memory Usage (MB)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+          "targets": [
+            {
+              "expr": "container_memory_working_set_bytes{namespace=\"telco-churn\", container!=\"\"} / 1024 / 1024",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "decmbytes" }
+          }
+        }
+      ],
+      "schemaVersion": 39,
+      "tags": ["telco-churn", "api", "ml"],
+      "templating": { "list": [] },
+      "time": { "from": "now-1h", "to": "now" },
+      "timepicker": {},
+      "timezone": "Europe/London",
+      "title": "Telco Churn API",
+      "uid": "telco-churn-api",
+      "version": 1
+    }

@@ -1,0 +1,35 @@
+
+# Persistent Volume Claims — Model artifacts & batch scores
+
+
+# PVC for LightGBM model files (exported from MLflow)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-pvc
+  namespace: telco-churn
+  labels:
+    app.kubernetes.io/part-of: telco-churn
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: azurefile-csi
+  resources:
+    requests:
+      storage: 1Gi
+---
+# PVC for batch scores CSV (exported from Delta Lake)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: scores-pvc
+  namespace: telco-churn
+  labels:
+    app.kubernetes.io/part-of: telco-churn
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: azurefile-csi
+  resources:
+    requests:
+      storage: 5Gi

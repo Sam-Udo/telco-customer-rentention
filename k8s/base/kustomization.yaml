@@ -1,0 +1,29 @@
+# Base Kustomization — all environments inherit from this
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: telco-churn
+
+resources:
+  - namespace.yaml
+  - serviceaccounts.yaml
+  - rbac.yaml
+  - configmap.yaml
+  - storage.yaml
+  - api-deployment.yaml
+  - api-service.yaml
+  - api-hpa.yaml
+  - dashboard-deployment.yaml
+  - dashboard-service.yaml
+  - dashboard-hpa.yaml
+  - pdb.yaml
+  - resource-quotas.yaml
+  - cert-manager.yaml
+  - ingress.yaml
+  - network-policies.yaml
+  - monitoring/
+
+labels:
+  - pairs:
+      app.kubernetes.io/managed-by: kustomize
+      app.kubernetes.io/part-of: telco-churn

@@ -1,0 +1,40 @@
+# Environment Config: STAGING
+# Mirror of production with isolated catalog for pre-prod validation
+
+environment: staging
+
+# Unity Catalog
+catalog: uk_telecoms_staging
+schemas:
+  bronze: bronze
+  silver: silver
+  gold: gold
+  ml: ml
+
+# Data paths (staging uses full production data copy or shared read-only mount)
+landing_path: "/mnt/landing-staging"
+
+# Cluster sizing (production-like but still conservative)
+clusters:
+  etl:
+    num_workers: 2
+    node_type_id: "Standard_DS4_v2"
+    spark_version: "14.3.x-scala2.12"
+  ml:
+    num_workers: 1
+    node_type_id: "Standard_DS4_v2"
+    spark_version: "14.3.x-ml-scala2.12"
+
+# Workflow schedule (paused — triggered by CD pipeline or manual)
+schedule:
+  pause_status: "PAUSED"
+
+# Model registry
+model_prefix: "uk_telecoms_staging.ml"
+
+# Feature Store
+feature_table: "uk_telecoms_staging.gold.churn_features"
+
+# Monitoring (enabled for validation)
+monitoring:
+  enabled: true

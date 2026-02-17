@@ -1,0 +1,102 @@
+
+# NetworkPolicies — Restrict traffic to telco-churn workloads
+
+# Requires: Calico or Azure Network Policy (configured in AKS Terraform module)
+
+#  API: Accept traffic from ingress-nginx only ──
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: churn-api-network-policy
+  namespace: telco-churn
+  labels:
+    app.kubernetes.io/part-of: telco-churn
+spec:
+  podSelector:
+    matchLabels:
+      app: churn-api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ingress-nginx and dashboard pods
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app: churn-dashboard
+      ports:
+        - protocol: TCP
+          port: 8000
+  egress:
+    # DNS resolution to CoreDNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Azure Files PVC mount (SMB)
+    - ports:
+        - protocol: TCP
+          port: 445
+
+---
+#  Dashboard: Accept traffic from ingress-nginx, egress to API only ──
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: churn-dashboard-network-policy
+  namespace: telco-churn
+  labels:
+    app.kubernetes.io/part-of: telco-churn
+spec:
+  podSelector:
+    matchLabels:
+      app: churn-dashboard
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ingress-nginx only
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8501
+  egress:
+    # DNS resolution to CoreDNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow egress to Churn API service
+    - to:
+        - podSelector:
+            matchLabels:
+              app: churn-api
+      ports:
+        - protocol: TCP
+          port: 8000
+    # Azure Files PVC mount (SMB)
+    - ports:
+        - protocol: TCP
+          port: 445
