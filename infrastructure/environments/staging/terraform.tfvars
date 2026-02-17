@@ -12,9 +12,9 @@ allowed_ips = ["151.240.254.33"]
 
 # AKS node pool sizing
 aks_kubernetes_version = "1.32"
-aks_system_vm_size     = "Standard_D2ads_v7"
+aks_system_vm_size     = "Standard_D2als_v7"
 aks_system_min_nodes   = 1
 aks_system_max_nodes   = 3
-aks_workload_vm_size   = "Standard_D4ads_v7"
-aks_workload_min_nodes = 2
-aks_workload_max_nodes = 5
+aks_workload_vm_size   = "Standard_D2als_v7"
+aks_workload_min_nodes = 1
+aks_workload_max_nodes = 2
