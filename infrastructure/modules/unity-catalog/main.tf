@@ -16,8 +16,10 @@ resource "databricks_metastore" "this" {
 }
 
 resource "databricks_metastore_assignment" "this" {
+  count = var.metastore_id == "" ? 1 : 0
+
   workspace_id         = var.workspace_id
-  metastore_id         = var.metastore_id != "" ? var.metastore_id : databricks_metastore.this[0].id
+  metastore_id         = databricks_metastore.this[0].id
   default_catalog_name = "main"
 }
 
