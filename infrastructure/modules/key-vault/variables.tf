@@ -8,8 +8,8 @@ variable "vnet_subnet_id" {
   default = ""
 }
 variable "allowed_ips" {
-  type    = list(string)
-  default = []
+  type        = list(string)
+  default     = []
   description = "List of IP addresses allowed to access Key Vault (for deployment/CI-CD)"
 }
 variable "tags" { type = map(string) }

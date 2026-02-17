@@ -122,7 +122,7 @@ resource "azurerm_network_security_group" "aks" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "443"
-    source_address_prefixes    = var.allowed_ingress_ips  # Configured per environment
+    source_address_prefixes    = var.allowed_ingress_ips # Configured per environment
     destination_address_prefix = "*"
     description                = "Allow HTTPS ingress from whitelisted corporate IPs"
   }

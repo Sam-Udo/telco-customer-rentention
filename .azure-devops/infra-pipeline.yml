@@ -68,6 +68,10 @@ stages:
                 - checkout: self
 
                 - script: |
+                    export ARM_CLIENT_ID=$(ARM_CLIENT_ID)
+                    export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET)
+                    export ARM_TENANT_ID=$(ARM_TENANT_ID)
+                    export ARM_SUBSCRIPTION_ID=$(AZURE_SUBSCRIPTION_ID)
                     cd $(workingDirectory)
                     terraform init \
                       -backend-config=environments/dev/backend.tfvars \
@@ -75,6 +79,10 @@ stages:
                   displayName: "terraform init (DEV)"
 
                 - script: |
+                    export ARM_CLIENT_ID=$(ARM_CLIENT_ID)
+                    export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET)
+                    export ARM_TENANT_ID=$(ARM_TENANT_ID)
+                    export ARM_SUBSCRIPTION_ID=$(AZURE_SUBSCRIPTION_ID)
                     cd $(workingDirectory)
                     terraform plan \
                       -var-file=environments/dev/terraform.tfvars \
@@ -83,6 +91,10 @@ stages:
                   displayName: "terraform plan (DEV)"
 
                 - script: |
+                    export ARM_CLIENT_ID=$(ARM_CLIENT_ID)
+                    export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET)
+                    export ARM_TENANT_ID=$(ARM_TENANT_ID)
+                    export ARM_SUBSCRIPTION_ID=$(AZURE_SUBSCRIPTION_ID)
                     cd $(workingDirectory)
                     terraform apply -auto-approve dev.tfplan
                   displayName: "terraform apply (DEV)"
@@ -104,6 +116,10 @@ stages:
                 - checkout: self
 
                 - script: |
+                    export ARM_CLIENT_ID=$(ARM_CLIENT_ID)
+                    export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET)
+                    export ARM_TENANT_ID=$(ARM_TENANT_ID)
+                    export ARM_SUBSCRIPTION_ID=$(AZURE_SUBSCRIPTION_ID)
                     cd $(workingDirectory)
                     terraform init \
                       -backend-config=environments/staging/backend.tfvars \
@@ -111,6 +127,10 @@ stages:
                   displayName: "terraform init (STAGING)"
 
                 - script: |
+                    export ARM_CLIENT_ID=$(ARM_CLIENT_ID)
+                    export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET)
+                    export ARM_TENANT_ID=$(ARM_TENANT_ID)
+                    export ARM_SUBSCRIPTION_ID=$(AZURE_SUBSCRIPTION_ID)
                     cd $(workingDirectory)
                     terraform plan \
                       -var-file=environments/staging/terraform.tfvars \
@@ -119,6 +139,10 @@ stages:
                   displayName: "terraform plan (STAGING)"
 
                 - script: |
+                    export ARM_CLIENT_ID=$(ARM_CLIENT_ID)
+                    export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET)
+                    export ARM_TENANT_ID=$(ARM_TENANT_ID)
+                    export ARM_SUBSCRIPTION_ID=$(AZURE_SUBSCRIPTION_ID)
                     cd $(workingDirectory)
                     terraform apply -auto-approve staging.tfplan
                   displayName: "terraform apply (STAGING)"
@@ -139,6 +163,10 @@ stages:
                 - checkout: self
 
                 - script: |
+                    export ARM_CLIENT_ID=$(ARM_CLIENT_ID)
+                    export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET)
+                    export ARM_TENANT_ID=$(ARM_TENANT_ID)
+                    export ARM_SUBSCRIPTION_ID=$(AZURE_SUBSCRIPTION_ID)
                     cd $(workingDirectory)
                     terraform init \
                       -backend-config=environments/prod/backend.tfvars \
@@ -146,6 +174,10 @@ stages:
                   displayName: "terraform init (PROD)"
 
                 - script: |
+                    export ARM_CLIENT_ID=$(ARM_CLIENT_ID)
+                    export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET)
+                    export ARM_TENANT_ID=$(ARM_TENANT_ID)
+                    export ARM_SUBSCRIPTION_ID=$(AZURE_SUBSCRIPTION_ID)
                     cd $(workingDirectory)
                     terraform plan \
                       -var-file=environments/prod/terraform.tfvars \
@@ -154,6 +186,10 @@ stages:
                   displayName: "terraform plan (PROD)"
 
                 - script: |
+                    export ARM_CLIENT_ID=$(ARM_CLIENT_ID)
+                    export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET)
+                    export ARM_TENANT_ID=$(ARM_TENANT_ID)
+                    export ARM_SUBSCRIPTION_ID=$(AZURE_SUBSCRIPTION_ID)
                     cd $(workingDirectory)
                     terraform apply -auto-approve prod.tfplan
                   displayName: "terraform apply (PROD)"

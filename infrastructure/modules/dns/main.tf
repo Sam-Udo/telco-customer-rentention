@@ -21,7 +21,7 @@ resource "azurerm_dns_a_record" "root" {
   zone_name           = azurerm_dns_zone.main.name
   resource_group_name = azurerm_resource_group.dns.name
   ttl                 = 300
-  records             = ["0.0.0.0"]  # Placeholder - updated by deploy script
+  records             = ["0.0.0.0"] # Placeholder - updated by deploy script
   tags                = var.tags
 }
 
