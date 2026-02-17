@@ -1,11 +1,6 @@
-# ══════════════════════════════════════════════════════════════
 # AKS Deployment Pipeline — Build, Push, Deploy
-# ══════════════════════════════════════════════════════════════
-# Builds Docker images for the Churn API and Dashboard,
-# pushes to ACR, and deploys to AKS via Kustomize overlays.
-#
-# Flow: Build Images → Push to ACR → Deploy DEV → Deploy STAGING → Deploy PROD
-# Auto-scaling: HPA handles pod scaling; AKS cluster autoscaler handles node scaling.
+# Builds Docker images for API and Dashboard, pushes to ACR, deploys to AKS.
+# Flow: Build Images → Push to ACR → Deploy DEV → Smoke Test → STAGING → PROD
 
 trigger:
   branches:
@@ -26,11 +21,9 @@ pr:
       - k8s/**
 
 pool:
-  vmImage: "ubuntu-latest"
+  name: Default
 
 variables:
-  - name: dockerBuildContext
-    value: "$(System.DefaultWorkingDirectory)"
   - name: apiImageName
     value: "churn-api"
   - name: dashboardImageName
@@ -39,63 +32,46 @@ variables:
     value: "$(Build.BuildId)"
 
 stages:
-  # ─────────────────────────────────────────────
-  # STAGE 1: Build & Push Docker Images
-  # ─────────────────────────────────────────────
   - stage: BuildAndPush
     displayName: "Build & Push Docker Images"
     jobs:
       - job: BuildImages
         steps:
-          # Build and push API image
-          - task: Docker@2
+          - script: |
+              echo "Logging in to ACR: $(ACR_LOGIN_SERVER)..."
+              az acr login --name $(ACR_NAME)
+            displayName: "Login to Azure Container Registry"
+
+          - script: |
+              echo "Building API image..."
+              docker build \
+                -t $(ACR_LOGIN_SERVER)/$(apiImageName):$(imageTag) \
+                -t $(ACR_LOGIN_SERVER)/$(apiImageName):latest \
+                -f serving/api/Dockerfile \
+                serving/api
             displayName: "Build Churn API Image"
-            inputs:
-              containerRegistry: "$(ACR_SERVICE_CONNECTION)"
-              repository: "$(apiImageName)"
-              command: "build"
-              Dockerfile: "serving/api/Dockerfile"
-              buildContext: "serving/api"
-              tags: |
-                $(imageTag)
-                latest
 
-          - task: Docker@2
+          - script: |
+              echo "Pushing API image..."
+              docker push $(ACR_LOGIN_SERVER)/$(apiImageName):$(imageTag)
+              docker push $(ACR_LOGIN_SERVER)/$(apiImageName):latest
             displayName: "Push Churn API Image"
-            inputs:
-              containerRegistry: "$(ACR_SERVICE_CONNECTION)"
-              repository: "$(apiImageName)"
-              command: "push"
-              tags: |
-                $(imageTag)
-                latest
 
-          # Build and push Dashboard image
-          - task: Docker@2
+          - script: |
+              echo "Building Dashboard image..."
+              docker build \
+                -t $(ACR_LOGIN_SERVER)/$(dashboardImageName):$(imageTag) \
+                -t $(ACR_LOGIN_SERVER)/$(dashboardImageName):latest \
+                -f serving/dashboard/Dockerfile \
+                serving/dashboard
             displayName: "Build Dashboard Image"
-            inputs:
-              containerRegistry: "$(ACR_SERVICE_CONNECTION)"
-              repository: "$(dashboardImageName)"
-              command: "build"
-              Dockerfile: "serving/dashboard/Dockerfile"
-              buildContext: "serving/dashboard"
-              tags: |
-                $(imageTag)
-                latest
 
-          - task: Docker@2
+          - script: |
+              echo "Pushing Dashboard image..."
+              docker push $(ACR_LOGIN_SERVER)/$(dashboardImageName):$(imageTag)
+              docker push $(ACR_LOGIN_SERVER)/$(dashboardImageName):latest
             displayName: "Push Dashboard Image"
-            inputs:
-              containerRegistry: "$(ACR_SERVICE_CONNECTION)"
-              repository: "$(dashboardImageName)"
-              command: "push"
-              tags: |
-                $(imageTag)
-                latest
 
-  # ─────────────────────────────────────────────
-  # STAGE 2: Deploy to DEV AKS
-  # ─────────────────────────────────────────────
   - stage: DeployDev
     displayName: "Deploy to AKS — DEV"
     dependsOn: BuildAndPush
@@ -111,43 +87,36 @@ stages:
               steps:
                 - checkout: self
 
-                - task: KubernetesManifest@1
-                  displayName: "Create namespace"
-                  inputs:
-                    action: deploy
-                    kubernetesServiceConnection: "$(AKS_SERVICE_CONNECTION)"
-                    manifests: "k8s/namespace.yaml"
+                - script: |
+                    az aks get-credentials --resource-group $(AKS_RESOURCE_GROUP) \
+                      --name $(AKS_CLUSTER_NAME) --overwrite-existing
+                  displayName: "Get AKS credentials"
 
-                # Set image tag in kustomization
+                - script: |
+                    kubectl apply -f k8s/namespace.yaml
+                  displayName: "Create namespace"
+
                 - script: |
                     cd k8s/overlays/dev
-                    # Update image tags with build ID
-                    sed -i "s/newTag:.*/newTag: \"$(imageTag)\"/" kustomization.yaml || true
-                    kubectl kustomize . > /tmp/dev-manifests.yaml
-                    echo "Generated manifests:"
-                    cat /tmp/dev-manifests.yaml
-                  displayName: "Generate DEV manifests (Kustomize)"
-
-                - task: KubernetesManifest@1
-                  displayName: "Deploy to DEV AKS"
-                  inputs:
-                    action: deploy
-                    kubernetesServiceConnection: "$(AKS_SERVICE_CONNECTION)"
-                    namespace: "telco-churn"
-                    manifests: "/tmp/dev-manifests.yaml"
+                    if command -v kustomize &>/dev/null; then
+                      kustomize edit set image \
+                        churn-api=$(ACR_LOGIN_SERVER)/$(apiImageName):$(imageTag) \
+                        churn-dashboard=$(ACR_LOGIN_SERVER)/$(dashboardImageName):$(imageTag)
+                      kustomize build . | kubectl apply -f -
+                    else
+                      kubectl kustomize . | kubectl apply -f -
+                    fi
+                  displayName: "Deploy DEV manifests (Kustomize)"
 
                 - script: |
                     echo "Waiting for API rollout..."
                     kubectl rollout status deployment/dev-churn-api -n telco-churn --timeout=300s
                     echo "Waiting for Dashboard rollout..."
                     kubectl rollout status deployment/dev-churn-dashboard -n telco-churn --timeout=300s
-                    echo "Deployment complete. Checking pod status:"
+                    echo "Deployment complete:"
                     kubectl get pods -n telco-churn -o wide
                   displayName: "Verify deployment rollout"
 
-  # ─────────────────────────────────────────────
-  # STAGE 3: Smoke Test DEV
-  # ─────────────────────────────────────────────
   - stage: SmokeTestDev
     displayName: "Smoke Test — DEV"
     dependsOn: DeployDev
@@ -157,7 +126,6 @@ stages:
           - script: |
               echo "Running smoke tests against DEV API..."
 
-              # Health check
               HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$(DEV_API_URL)/health")
               if [ "$HTTP_CODE" != "200" ]; then
                 echo "Health check failed: HTTP $HTTP_CODE"
@@ -165,7 +133,6 @@ stages:
               fi
               echo "Health check passed"
 
-              # Readiness check
               HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$(DEV_API_URL)/ready")
               if [ "$HTTP_CODE" != "200" ]; then
                 echo "Readiness check failed: HTTP $HTTP_CODE"
@@ -173,11 +140,9 @@ stages:
               fi
               echo "Readiness check passed"
 
-              # Model info
               curl -s "$(DEV_API_URL)/model/info" | python3 -m json.tool
               echo "Model info check passed"
 
-              # Test prediction
               RESPONSE=$(curl -s -X POST "$(DEV_API_URL)/predict" \
                 -H "Content-Type: application/json" \
                 -d '{
@@ -197,7 +162,6 @@ stages:
                 }')
               echo "Prediction response: $RESPONSE"
 
-              # Verify response has required fields
               echo "$RESPONSE" | python3 -c "
               import json, sys
               data = json.load(sys.stdin)
@@ -208,9 +172,6 @@ stages:
               "
             displayName: "Run API smoke tests"
 
-  # ─────────────────────────────────────────────
-  # STAGE 4: Deploy to STAGING AKS
-  # ─────────────────────────────────────────────
   - stage: DeployStaging
     displayName: "Deploy to AKS — STAGING"
     dependsOn: SmokeTestDev
@@ -226,18 +187,14 @@ stages:
                 - checkout: self
 
                 - script: |
-                    cd k8s/overlays/staging
-                    sed -i "s/newTag:.*/newTag: \"$(imageTag)\"/" kustomization.yaml || true
-                    kubectl kustomize . > /tmp/staging-manifests.yaml
-                  displayName: "Generate STAGING manifests (Kustomize)"
+                    az aks get-credentials --resource-group $(AKS_RESOURCE_GROUP) \
+                      --name $(AKS_CLUSTER_NAME) --overwrite-existing
+                  displayName: "Get AKS credentials"
 
-                - task: KubernetesManifest@1
-                  displayName: "Deploy to STAGING AKS"
-                  inputs:
-                    action: deploy
-                    kubernetesServiceConnection: "$(AKS_SERVICE_CONNECTION)"
-                    namespace: "telco-churn"
-                    manifests: "/tmp/staging-manifests.yaml"
+                - script: |
+                    cd k8s/overlays/staging
+                    kubectl kustomize . | kubectl apply -f -
+                  displayName: "Deploy STAGING manifests (Kustomize)"
 
                 - script: |
                     kubectl rollout status deployment/staging-churn-api -n telco-churn --timeout=300s
@@ -246,9 +203,6 @@ stages:
                     kubectl get hpa -n telco-churn
                   displayName: "Verify STAGING deployment + HPA"
 
-  # ─────────────────────────────────────────────
-  # STAGE 5: Deploy to PRODUCTION AKS (manual approval)
-  # ─────────────────────────────────────────────
   - stage: DeployProd
     displayName: "Deploy to AKS — PRODUCTION"
     dependsOn: DeployStaging
@@ -256,7 +210,7 @@ stages:
       - group: aks-prod
     jobs:
       - deployment: DeployToProdAKS
-        environment: "telco-churn-aks-prod"  # ← Manual approval gate
+        environment: "telco-churn-aks-prod"
         strategy:
           runOnce:
             deploy:
@@ -264,18 +218,14 @@ stages:
                 - checkout: self
 
                 - script: |
-                    cd k8s/overlays/prod
-                    sed -i "s/newTag:.*/newTag: \"$(imageTag)\"/" kustomization.yaml || true
-                    kubectl kustomize . > /tmp/prod-manifests.yaml
-                  displayName: "Generate PROD manifests (Kustomize)"
+                    az aks get-credentials --resource-group $(AKS_RESOURCE_GROUP) \
+                      --name $(AKS_CLUSTER_NAME) --overwrite-existing
+                  displayName: "Get AKS credentials"
 
-                - task: KubernetesManifest@1
-                  displayName: "Deploy to PROD AKS"
-                  inputs:
-                    action: deploy
-                    kubernetesServiceConnection: "$(AKS_SERVICE_CONNECTION)"
-                    namespace: "telco-churn"
-                    manifests: "/tmp/prod-manifests.yaml"
+                - script: |
+                    cd k8s/overlays/prod
+                    kubectl kustomize . | kubectl apply -f -
+                  displayName: "Deploy PROD manifests (Kustomize)"
 
                 - script: |
                     echo "Verifying PRODUCTION deployment..."

@@ -1,11 +1,6 @@
-# ══════════════════════════════════════════════════════════════
 # Infrastructure Pipeline — Terraform Plan & Apply
-# ══════════════════════════════════════════════════════════════
-# Provisions all Azure resources (networking, storage, Databricks,
-# Unity Catalog, Key Vault, monitoring) per environment.
-#
+# Provisions all Azure resources per environment.
 # Flow: terraform plan (on PR) → terraform apply (on merge to main)
-# Environments: DEV → STAGING → PROD (with approval gates)
 
 trigger:
   branches:
@@ -24,7 +19,7 @@ pr:
       - infrastructure/**
 
 pool:
-  vmImage: "ubuntu-latest"
+  name: Default
 
 variables:
   - name: terraformVersion
@@ -33,17 +28,19 @@ variables:
     value: "$(System.DefaultWorkingDirectory)/infrastructure"
 
 stages:
-  # ─────────────────────────────────────────────
-  # STAGE 1: Terraform Validate & Lint
-  # ─────────────────────────────────────────────
   - stage: Validate
     displayName: "Terraform Validate"
     jobs:
       - job: ValidateTerraform
         steps:
-          - task: TerraformInstaller@1
-            inputs:
-              terraformVersion: $(terraformVersion)
+          - script: |
+              if ! terraform version 2>/dev/null; then
+                echo "Installing Terraform $(terraformVersion)..."
+                brew tap hashicorp/tap
+                brew install hashicorp/tap/terraform
+              fi
+              terraform version
+            displayName: "Ensure Terraform installed"
 
           - script: |
               cd $(workingDirectory)
@@ -56,9 +53,6 @@ stages:
               terraform fmt -check -recursive
             displayName: "terraform fmt check"
 
-  # ─────────────────────────────────────────────
-  # STAGE 2: Plan & Apply DEV
-  # ─────────────────────────────────────────────
   - stage: DeployDev
     displayName: "Deploy Infra — DEV"
     dependsOn: Validate
@@ -72,10 +66,6 @@ stages:
             deploy:
               steps:
                 - checkout: self
-
-                - task: TerraformInstaller@1
-                  inputs:
-                    terraformVersion: $(terraformVersion)
 
                 - script: |
                     cd $(workingDirectory)
@@ -98,9 +88,6 @@ stages:
                   displayName: "terraform apply (DEV)"
                   condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
 
-  # ─────────────────────────────────────────────
-  # STAGE 3: Plan & Apply STAGING
-  # ─────────────────────────────────────────────
   - stage: DeployStaging
     displayName: "Deploy Infra — STAGING"
     dependsOn: DeployDev
@@ -115,10 +102,6 @@ stages:
             deploy:
               steps:
                 - checkout: self
-
-                - task: TerraformInstaller@1
-                  inputs:
-                    terraformVersion: $(terraformVersion)
 
                 - script: |
                     cd $(workingDirectory)
@@ -140,9 +123,6 @@ stages:
                     terraform apply -auto-approve staging.tfplan
                   displayName: "terraform apply (STAGING)"
 
-  # ─────────────────────────────────────────────
-  # STAGE 4: Plan & Apply PROD (manual approval)
-  # ─────────────────────────────────────────────
   - stage: DeployProd
     displayName: "Deploy Infra — PRODUCTION"
     dependsOn: DeployStaging
@@ -151,16 +131,12 @@ stages:
       - group: azure-infra-prod
     jobs:
       - deployment: TerraformApplyProd
-        environment: "telco-churn-infra-prod"  # ← Manual approval gate
+        environment: "telco-churn-infra-prod"
         strategy:
           runOnce:
             deploy:
               steps:
                 - checkout: self
-
-                - task: TerraformInstaller@1
-                  inputs:
-                    terraformVersion: $(terraformVersion)
 
                 - script: |
                     cd $(workingDirectory)
