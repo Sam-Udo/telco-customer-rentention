@@ -6,10 +6,12 @@ resource_prefix    = "telco-churn"
 storage_prefix     = "telcochurnsa"
 vnet_address_space = ["10.2.0.0/16"]
 databricks_sku     = "premium"
-metastore_id       = "" # Set via TF_VAR_metastore_id
+metastore_id       = "0ff81767-3ec8-4fa1-b5d2-2680da343f16"
+
+allowed_ips = ["151.240.254.33"]
 
 # AKS node pool sizing
-aks_kubernetes_version = "1.31"
+aks_kubernetes_version = "1.32"
 aks_system_vm_size     = "Standard_DS2_v2"
 aks_system_min_nodes   = 1
 aks_system_max_nodes   = 3
