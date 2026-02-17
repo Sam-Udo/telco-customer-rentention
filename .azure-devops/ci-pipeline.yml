@@ -11,7 +11,7 @@ pr:
       - release/*
 
 pool:
-  vmImage: "ubuntu-latest"
+  name: Default
 
 variables:
   - group: databricks-common
