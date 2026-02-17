@@ -51,7 +51,7 @@ Master entity: `customer_info` (202,782 unique customers). 100% of cease/calls c
 
 ### 1.3 End-to-End Architecture
 
-![Telco Churn ML Platform - End-to-end architecture on Azure, UK South Region](architecture.svg)
+![Telco Churn ML Platform - End-to-end architecture on Azure, UK South Region](architecture.png)
 
 ---
 
