@@ -51,47 +51,324 @@ Master entity: `customer_info` (202,782 unique customers). 100% of cease/calls c
 
 ### 1.3 End-to-End Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                            AZURE (UK South Region)                               │
-│                                                                                  │
-│  ┌──── Terraform IaC (8 modules, 3 environments) ────────────────────────────┐  │
-│  │                                                                            │  │
-│  │  ┌────────────┐   ┌─────────────────┐   ┌──────────────┐   ┌──────────┐  │  │
-│  │  │   VNet      │   │  ADLS Gen2       │   │  Key Vault   │   │   ACR    │  │  │
-│  │  │ 10.x.0.0/16│   │  5 containers    │   │  Secrets      │   │  Images  │  │  │
-│  │  │ 4 subnets   │   │  Private EP      │   │  Private EP   │   │          │  │  │
-│  │  └──────┬──────┘   └────────┬─────────┘   └──────────────┘   └────┬─────┘  │  │
-│  │         │                   │                                      │        │  │
-│  │  ┌──────▼──────────────────▼──────────────────────────────────────▼─────┐  │  │
-│  │  │                    DATABRICKS (Premium, VNet-injected)                │  │  │
-│  │  │                                                                      │  │  │
-│  │  │  Unity Catalog: uk_telecoms                                          │  │  │
-│  │  │  ├── bronze   (raw Delta tables)                                     │  │  │
-│  │  │  ├── silver   (cleaned, typed, validated)                            │  │  │
-│  │  │  ├── gold     (features, targets, training sets, scores)             │  │  │
-│  │  │  └── ml       (MLflow models with Champion/Challenger aliases)       │  │  │
-│  │  │                                                                      │  │  │
-│  │  │  Workflow DAG: Bronze → Silver → Gold → Score → Monitor              │  │  │
-│  │  │  Schedule: 1st of month, 06:00 UTC                                   │  │  │
-│  │  └──────────────────────────────────┬───────────────────────────────────┘  │  │
-│  │                                     │ export models (.txt) + scores (.csv) │  │
-│  │  ┌──────────────────────────────────▼───────────────────────────────────┐  │  │
-│  │  │                     AKS (Managed Kubernetes)                          │  │  │
-│  │  │                                                                      │  │  │
-│  │  │  NGINX Ingress (telco-churn.xyz)                                     │  │  │
-│  │  │  ├── /api/*  → FastAPI (2-10 pods, HPA)                             │  │  │
-│  │  │  └── /*      → Streamlit Dashboard (2-6 pods, HPA)                  │  │  │
-│  │  │                                                                      │  │  │
-│  │  │  NetworkPolicies · PDB · ResourceQuotas · Prometheus · Grafana       │  │  │
-│  │  └──────────────────────────────────────────────────────────────────────┘  │  │
-│  │                                                                            │  │
-│  │  Log Analytics · Azure Monitor · Diagnostic Logs · Alert Rules             │  │
-│  └────────────────────────────────────────────────────────────────────────────┘  │
-│                                                                                  │
-│  Azure DevOps: CI (lint+test) → CD (DEV→STAGING→PROD) → Infra → AKS pipelines  │
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
+<h3 align="center">Telco Churn ML Platform</h3>
+<p align="center"><em>End-to-end ML architecture on Azure &middot; UK South Region</em></p>
+
+<svg viewBox="0 0 940 620" width="940" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="a1" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#EA580C"/></marker>
+  <marker id="a2" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#326CE5"/></marker>
+  <marker id="a3" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#059669"/></marker>
+  <marker id="a5" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#94A3B8"/></marker>
+  <marker id="a6" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#475569"/></marker>
+  <filter id="sh"><feDropShadow dx="0" dy="0.5" stdDeviation="1.5" flood-opacity="0.06"/></filter>
+</defs>
+
+<!-- AZURE REGION -->
+<rect x="8" y="8" width="924" height="604" rx="14" fill="#F8FAFC" stroke="#0078D4" stroke-width="2"/>
+<rect x="20" y="0" width="155" height="24" rx="6" fill="#0078D4"/>
+<text x="48" y="16" font-size="11" font-weight="700" fill="#fff" font-family="Segoe UI, system-ui, sans-serif">&#9729;  Azure · UK South</text>
+
+<!-- TERRAFORM IaC BOUNDARY -->
+<rect x="20" y="32" width="572" height="180" rx="10" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.2" stroke-dasharray="6,4"/>
+<rect x="32" y="25" width="260" height="20" rx="5" fill="#7C3AED"/>
+<g transform="translate(38,28) scale(0.65)">
+  <path d="M1 4.5l7 4v8l-7-4z" fill="#fff"/>
+  <path d="M9 .5l7 4v8l-7-4z" fill="#fff"/>
+  <path d="M9 13.5l7 4v8l-7-4z" fill="#fff"/>
+  <path d="M17 4.5l7 4v8l-7-4z" fill="#fff" opacity="0.6"/>
+</g>
+<text x="58" y="39" font-size="9" font-weight="700" fill="#fff" letter-spacing="0.3" font-family="Segoe UI, system-ui, sans-serif">TERRAFORM IaC · 8 MODULES · 3 ENVIRONMENTS</text>
+
+<!-- VNet -->
+<rect x="32" y="52" width="125" height="50" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.2" filter="url(#sh)"/>
+<rect x="32" y="52" width="4" height="50" rx="2" fill="#3B82F6"/>
+<circle cx="53" cy="70" r="7" fill="none" stroke="#3B82F6" stroke-width="1.3"/>
+<circle cx="49" cy="76" r="3" fill="none" stroke="#3B82F6" stroke-width="1"/>
+<circle cx="57" cy="76" r="3" fill="none" stroke="#3B82F6" stroke-width="1"/>
+<line x1="53" y1="64" x2="49" y2="73" stroke="#3B82F6" stroke-width="1"/>
+<line x1="53" y1="64" x2="57" y2="73" stroke="#3B82F6" stroke-width="1"/>
+<text x="68" y="72" font-size="10" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">VNet</text>
+<text x="68" y="84" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">10.x.0.0/16 · 4 subnets</text>
+
+<!-- ADLS Gen2 -->
+<rect x="168" y="52" width="125" height="50" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.2" filter="url(#sh)"/>
+<rect x="168" y="52" width="4" height="50" rx="2" fill="#059669"/>
+<ellipse cx="189" cy="66" rx="7" ry="3" fill="none" stroke="#059669" stroke-width="1.3"/>
+<path d="M182 66v6c0 1.7 3 3 7 3s7-1.3 7-3v-6" stroke="#059669" stroke-width="1.2" fill="none"/>
+<path d="M182 72v5c0 1.7 3 3 7 3s7-1.3 7-3v-5" stroke="#059669" stroke-width="1.2" fill="none"/>
+<text x="204" y="72" font-size="10" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">ADLS Gen2</text>
+<text x="204" y="84" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">5 containers · Priv EP</text>
+
+<!-- Key Vault -->
+<rect x="304" y="52" width="125" height="50" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.2" filter="url(#sh)"/>
+<rect x="304" y="52" width="4" height="50" rx="2" fill="#F59E0B"/>
+<rect x="318" y="70" width="12" height="10" rx="2" fill="none" stroke="#F59E0B" stroke-width="1.3"/>
+<path d="M321 70V67a3 3 0 016 0v3" fill="none" stroke="#F59E0B" stroke-width="1.3"/>
+<circle cx="324" cy="75" r="1" fill="#F59E0B"/>
+<text x="336" y="72" font-size="10" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">Key Vault</text>
+<text x="336" y="84" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">Secrets · Private EP</text>
+
+<!-- ACR -->
+<rect x="440" y="52" width="140" height="50" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.2" filter="url(#sh)"/>
+<rect x="440" y="52" width="4" height="50" rx="2" fill="#0891B2"/>
+<rect x="455" y="64" width="16" height="12" rx="2" fill="none" stroke="#0891B2" stroke-width="1.3"/>
+<rect x="457" y="67" width="4" height="3" rx="0.5" fill="#0891B2" opacity="0.4"/>
+<rect x="462" y="67" width="4" height="3" rx="0.5" fill="#0891B2" opacity="0.4"/>
+<rect x="457" y="71" width="4" height="3" rx="0.5" fill="#0891B2" opacity="0.3"/>
+<rect x="462" y="71" width="4" height="3" rx="0.5" fill="#0891B2" opacity="0.3"/>
+<text x="478" y="72" font-size="10" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">Container Registry</text>
+<text x="478" y="84" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">Docker images (ACR)</text>
+
+<!-- Vertical connectors: infra to Databricks -->
+<line x1="94" y1="102" x2="94" y2="118" stroke="#CBD5E1" stroke-width="1.2" stroke-dasharray="3,2"/>
+<line x1="230" y1="102" x2="230" y2="118" stroke="#CBD5E1" stroke-width="1.2" stroke-dasharray="3,2"/>
+<line x1="510" y1="102" x2="510" y2="118" stroke="#CBD5E1" stroke-width="1.2" stroke-dasharray="3,2"/>
+
+<!-- DATABRICKS BLOCK -->
+<rect x="32" y="118" width="548" height="88" rx="10" fill="#FFF7ED" stroke="#EA580C" stroke-width="1.5"/>
+<rect x="44" y="111" width="290" height="20" rx="5" fill="#EA580C"/>
+<g transform="translate(50,113) scale(0.65)">
+  <path d="M12 2L2 7.5l10 5.5 10-5.5L12 2z" fill="#fff" opacity="0.9"/>
+  <path d="M2 12l10 5.5L22 12" stroke="#fff" stroke-width="1.5" fill="none"/>
+</g>
+<text x="70" y="125" font-size="9" font-weight="700" fill="#fff" letter-spacing="0.3" font-family="Segoe UI, system-ui, sans-serif">DATABRICKS PREMIUM · VNET-INJECTED</text>
+
+<!-- Unity Catalog label -->
+<text x="44" y="142" font-size="8.5" font-weight="600" fill="#9A3412" font-family="Segoe UI, system-ui, sans-serif">Unity Catalog: uk_telecoms</text>
+
+<!-- Medallion dashed border -->
+<rect x="42" y="148" width="380" height="50" rx="6" fill="#FFFBEB" stroke="#FDE68A" stroke-width="0.8" stroke-dasharray="4,2"/>
+
+<!-- Bronze card -->
+<rect x="50" y="152" width="100" height="40" rx="7" fill="#fff" stroke="#B45309" stroke-width="1.2"/>
+<circle cx="70" cy="172" r="10" fill="#B45309"/>
+<text x="70" y="176" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="Segoe UI, system-ui, sans-serif">B</text>
+<text x="96" y="168" font-size="9" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">Bronze</text>
+<text x="96" y="180" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">Raw Delta</text>
+
+<!-- Arrow B to S -->
+<line x1="153" y1="172" x2="163" y2="172" stroke="#EA580C" stroke-width="1.5" marker-end="url(#a1)"/>
+<text x="158" y="164" text-anchor="middle" font-size="6.5" fill="#EA580C" font-weight="600" font-family="Segoe UI, system-ui, sans-serif">validate</text>
+
+<!-- Silver card -->
+<rect x="168" y="152" width="100" height="40" rx="7" fill="#fff" stroke="#64748B" stroke-width="1.2"/>
+<circle cx="188" cy="172" r="10" fill="#64748B"/>
+<text x="188" y="176" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="Segoe UI, system-ui, sans-serif">S</text>
+<text x="214" y="168" font-size="9" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">Silver</text>
+<text x="214" y="180" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">Clean · Typed</text>
+
+<!-- Arrow S to G -->
+<line x1="271" y1="172" x2="281" y2="172" stroke="#EA580C" stroke-width="1.5" marker-end="url(#a1)"/>
+<text x="276" y="164" text-anchor="middle" font-size="6.5" fill="#EA580C" font-weight="600" font-family="Segoe UI, system-ui, sans-serif">transform</text>
+
+<!-- Gold card -->
+<rect x="286" y="152" width="100" height="40" rx="7" fill="#fff" stroke="#CA8A04" stroke-width="1.2"/>
+<circle cx="306" cy="172" r="10" fill="#CA8A04"/>
+<text x="306" y="176" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="Segoe UI, system-ui, sans-serif">G</text>
+<text x="332" y="168" font-size="9" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">Gold</text>
+<text x="332" y="180" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">Features</text>
+
+<!-- Arrow G to MLflow -->
+<line x1="389" y1="172" x2="432" y2="172" stroke="#EA580C" stroke-width="1.5" marker-end="url(#a1)"/>
+<text x="411" y="164" text-anchor="middle" font-size="6.5" fill="#EA580C" font-weight="600" font-family="Segoe UI, system-ui, sans-serif">train / score</text>
+
+<!-- MLflow Registry card -->
+<rect x="436" y="150" width="134" height="48" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.2" filter="url(#sh)"/>
+<rect x="436" y="150" width="4" height="48" rx="2" fill="#0D6EFD"/>
+<circle cx="457" cy="168" r="8" fill="none" stroke="#0D6EFD" stroke-width="1.3"/>
+<circle cx="457" cy="166" r="2" fill="#0D6EFD"/>
+<path d="M453 174c0-3 2-4 4-6 2 2 4 3 4 6" stroke="#0D6EFD" stroke-width="1" fill="none"/>
+<text x="472" y="168" font-size="10" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">MLflow Registry</text>
+<text x="472" y="180" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">Champion / Challenger</text>
+
+<!-- VERTICAL CONNECTOR: Databricks to AKS -->
+<line x1="306" y1="206" x2="306" y2="330" stroke="#475569" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a6)"/>
+<rect x="253" y="256" width="148" height="18" rx="4" fill="#FFF7ED" stroke="#EA580C" stroke-width="0.6"/>
+<text x="327" y="268" text-anchor="middle" font-size="7.5" fill="#EA580C" font-weight="600" font-family="Segoe UI, system-ui, sans-serif">export models (.txt) + scores (.csv)</text>
+
+<!-- AKS BLOCK -->
+<rect x="20" y="335" width="572" height="155" rx="10" fill="#EFF6FF" stroke="#326CE5" stroke-width="1.5"/>
+<rect x="32" y="328" width="225" height="20" rx="5" fill="#326CE5"/>
+<g transform="translate(38,330) scale(0.65)">
+  <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" stroke="#fff" stroke-width="1.5" fill="none"/>
+  <circle cx="12" cy="12" r="3" stroke="#fff" stroke-width="1" fill="none"/>
+</g>
+<text x="58" y="342" font-size="9" font-weight="700" fill="#fff" letter-spacing="0.3" font-family="Segoe UI, system-ui, sans-serif">AKS · MANAGED KUBERNETES</text>
+
+<!-- NGINX Ingress card -->
+<rect x="34" y="358" width="118" height="52" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.2" filter="url(#sh)"/>
+<rect x="34" y="358" width="4" height="52" rx="2" fill="#009639"/>
+<rect x="48" y="368" width="18" height="18" rx="4" fill="#009639"/>
+<text x="57" y="381" text-anchor="middle" font-size="10" font-weight="700" fill="#fff" font-family="Segoe UI, system-ui, sans-serif">N</text>
+<text x="74" y="378" font-size="9.5" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">NGINX Ingress</text>
+<text x="74" y="392" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">telco-churn.xyz</text>
+
+<!-- AKS arrows: NGINX to Workloads -->
+<line x1="152" y1="378" x2="170" y2="378" stroke="#326CE5" stroke-width="1.3" marker-end="url(#a2)"/>
+<line x1="152" y1="390" x2="170" y2="390" stroke="#326CE5" stroke-width="1.3" marker-end="url(#a2)"/>
+
+<!-- Workloads sub-cluster -->
+<rect x="175" y="352" width="210" height="72" rx="8" fill="#DBEAFE" stroke="#93C5FD" stroke-width="0.8" stroke-dasharray="4,2"/>
+<text x="185" y="365" font-size="7.5" fill="#2563EB" font-weight="600" letter-spacing="0.5" font-family="Segoe UI, system-ui, sans-serif">WORKLOADS · HPA</text>
+
+<!-- FastAPI card -->
+<rect x="185" y="372" width="92" height="44" rx="7" fill="#fff" stroke="#E2E8F0" stroke-width="1" filter="url(#sh)"/>
+<rect x="185" y="372" width="4" height="44" rx="2" fill="#009688"/>
+<rect x="198" y="380" width="16" height="16" rx="3" fill="#009688"/>
+<text x="220" y="390" font-size="9" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">FastAPI</text>
+<text x="220" y="403" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">/api/* · 2-10</text>
+
+<!-- Streamlit card -->
+<rect x="285" y="372" width="92" height="44" rx="7" fill="#fff" stroke="#E2E8F0" stroke-width="1" filter="url(#sh)"/>
+<rect x="285" y="372" width="4" height="44" rx="2" fill="#FF4B4B"/>
+<rect x="298" y="380" width="16" height="16" rx="3" fill="#FF4B4B"/>
+<text x="320" y="390" font-size="9" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">Streamlit</text>
+<text x="320" y="403" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">/* · 2-6 pods</text>
+
+<!-- Observability sub-cluster -->
+<rect x="400" y="352" width="180" height="72" rx="8" fill="#DBEAFE" stroke="#93C5FD" stroke-width="0.8" stroke-dasharray="4,2"/>
+<text x="410" y="365" font-size="7.5" fill="#2563EB" font-weight="600" letter-spacing="0.5" font-family="Segoe UI, system-ui, sans-serif">OBSERVABILITY</text>
+
+<!-- Prometheus card -->
+<rect x="410" y="372" width="78" height="44" rx="7" fill="#fff" stroke="#E2E8F0" stroke-width="1" filter="url(#sh)"/>
+<rect x="410" y="372" width="4" height="44" rx="2" fill="#E6522C"/>
+<circle cx="430" cy="388" r="7" fill="none" stroke="#E6522C" stroke-width="1.2"/>
+<path d="M430 382v3" stroke="#E6522C" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M427 391h6" stroke="#E6522C" stroke-width="1.2" stroke-linecap="round"/>
+<text x="442" y="390" font-size="8.5" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">Prom.</text>
+<text x="442" y="402" font-size="7" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">Metrics</text>
+
+<!-- Grafana card -->
+<rect x="496" y="372" width="76" height="44" rx="7" fill="#fff" stroke="#E2E8F0" stroke-width="1" filter="url(#sh)"/>
+<rect x="496" y="372" width="4" height="44" rx="2" fill="#F46800"/>
+<circle cx="516" cy="388" r="7" fill="none" stroke="#F46800" stroke-width="1.2"/>
+<circle cx="516" cy="388" r="3" stroke="#F46800" stroke-width="1" fill="none"/>
+<circle cx="516" cy="388" r="1" fill="#F46800"/>
+<text x="528" y="390" font-size="8.5" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">Grafana</text>
+<text x="528" y="402" font-size="7" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">Dashboards</text>
+
+<!-- Prometheus to Grafana link -->
+<line x1="488" y1="394" x2="493" y2="394" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a5)"/>
+
+<!-- K8s policies text -->
+<text x="42" y="438" font-size="7.5" fill="#3B82F6" font-weight="500" font-family="Segoe UI, system-ui, sans-serif">NetworkPolicies · PDB · ResourceQuotas</text>
+<text x="42" y="450" font-size="7" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">4-16 pods total · Horizontal Pod Autoscaler</text>
+
+<!-- CI/CD -->
+<rect x="610" y="32" width="310" height="85" rx="10" fill="#ECFDF5" stroke="#059669" stroke-width="1.2" stroke-dasharray="6,3"/>
+<text x="624" y="52" font-size="9" font-weight="700" fill="#059669" letter-spacing="0.5" font-family="Segoe UI, system-ui, sans-serif">AZURE DEVOPS · CI/CD</text>
+
+<rect x="620" y="60" width="138" height="46" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.2" filter="url(#sh)"/>
+<rect x="620" y="60" width="4" height="46" rx="2" fill="#0078D4"/>
+<circle cx="640" cy="76" r="3" fill="none" stroke="#0078D4" stroke-width="1.2"/>
+<circle cx="652" cy="70" r="3" fill="none" stroke="#0078D4" stroke-width="1.2"/>
+<circle cx="652" cy="82" r="3" fill="none" stroke="#0078D4" stroke-width="1.2"/>
+<line x1="643" y1="74" x2="649" y2="72" stroke="#0078D4" stroke-width="1"/>
+<line x1="643" y1="78" x2="649" y2="80" stroke="#0078D4" stroke-width="1"/>
+<text x="662" y="78" font-size="10" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">CI Pipeline</text>
+<text x="662" y="90" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">Lint + Test + Build</text>
+
+<rect x="770" y="60" width="138" height="46" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.2" filter="url(#sh)"/>
+<rect x="770" y="60" width="4" height="46" rx="2" fill="#059669"/>
+<text x="790" y="78" font-size="10" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">CD Pipeline</text>
+<text x="790" y="90" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">DEV → STG → PROD</text>
+<line x1="758" y1="83" x2="767" y2="83" stroke="#059669" stroke-width="1.5" marker-end="url(#a3)"/>
+
+<!-- WORKFLOW DAG -->
+<rect x="610" y="140" width="310" height="68" rx="10" fill="#fff" stroke="#E2E8F0" stroke-width="1.2" filter="url(#sh)"/>
+<rect x="610" y="140" width="4" height="68" rx="2" fill="#EA580C"/>
+<text x="628" y="159" font-size="10" font-weight="700" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">Workflow DAG</text>
+<text x="628" y="174" font-size="8.5" fill="#64748B" font-family="Segoe UI, system-ui, sans-serif">Bronze → Silver → Gold → Score → Monitor</text>
+<text x="628" y="189" font-size="8.5" fill="#64748B" font-family="Segoe UI, system-ui, sans-serif">Schedule: 1st of month, 06:00 UTC</text>
+<text x="628" y="203" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">Databricks Jobs orchestration</text>
+
+<!-- MONITORING -->
+<rect x="610" y="335" width="310" height="115" rx="10" fill="#FEF2F2" stroke="#EF4444" stroke-width="1.2" stroke-dasharray="6,3"/>
+<text x="624" y="355" font-size="9" font-weight="700" fill="#EF4444" letter-spacing="0.5" font-family="Segoe UI, system-ui, sans-serif">MONITORING &amp; ALERTING</text>
+
+<rect x="620" y="365" width="138" height="55" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.2" filter="url(#sh)"/>
+<rect x="620" y="365" width="4" height="55" rx="2" fill="#EF4444"/>
+<rect x="635" y="375" width="14" height="10" rx="2" fill="none" stroke="#EF4444" stroke-width="1.2"/>
+<polyline points="638,382 641,377 644,379 647,375" stroke="#EF4444" stroke-width="1" fill="none" stroke-linecap="round"/>
+<text x="654" y="388" font-size="10" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">Azure Monitor</text>
+<text x="654" y="400" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">Alert Rules · Diagnostics</text>
+<text x="654" y="412" font-size="7" fill="#B0B8C4" font-family="Segoe UI, system-ui, sans-serif">Dashboard metrics</text>
+
+<rect x="770" y="365" width="138" height="55" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1.2" filter="url(#sh)"/>
+<rect x="770" y="365" width="4" height="55" rx="2" fill="#0078D4"/>
+<rect x="785" y="375" width="14" height="10" rx="2" fill="none" stroke="#0078D4" stroke-width="1.2"/>
+<line x1="787" y1="379" x2="797" y2="379" stroke="#0078D4" stroke-width="0.8"/>
+<line x1="787" y1="381" x2="795" y2="381" stroke="#0078D4" stroke-width="0.8"/>
+<text x="804" y="388" font-size="10" font-weight="600" fill="#1E293B" font-family="Segoe UI, system-ui, sans-serif">Log Analytics</text>
+<text x="804" y="400" font-size="7.5" fill="#94A3B8" font-family="Segoe UI, system-ui, sans-serif">Diagnostic Logs</text>
+<text x="804" y="412" font-size="7" fill="#B0B8C4" font-family="Segoe UI, system-ui, sans-serif">Workspace</text>
+
+<line x1="758" y1="392" x2="767" y2="392" stroke="#FCA5A5" stroke-width="1.2" stroke-dasharray="3,2"/>
+
+<!-- ARCHITECTURE NOTES -->
+<rect x="610" y="465" width="310" height="140" rx="10" fill="#FAFAFA" stroke="#E2E8F0" stroke-width="1"/>
+<text x="624" y="485" font-size="9" font-weight="700" fill="#475569" letter-spacing="0.5" font-family="Segoe UI, system-ui, sans-serif">ARCHITECTURE NOTES</text>
+
+<circle cx="628" cy="502" r="3" fill="#3B82F6"/>
+<text x="638" y="506" font-size="8" fill="#475569" font-family="Segoe UI, system-ui, sans-serif">VNet-injected Databricks (private networking)</text>
+<circle cx="628" cy="518" r="3" fill="#F59E0B"/>
+<text x="638" y="522" font-size="8" fill="#475569" font-family="Segoe UI, system-ui, sans-serif">All secrets via Key Vault with Private Endpoints</text>
+<circle cx="628" cy="534" r="3" fill="#059669"/>
+<text x="638" y="538" font-size="8" fill="#475569" font-family="Segoe UI, system-ui, sans-serif">ADLS Gen2 mounted via Private Endpoints</text>
+<circle cx="628" cy="550" r="3" fill="#326CE5"/>
+<text x="638" y="554" font-size="8" fill="#475569" font-family="Segoe UI, system-ui, sans-serif">HPA auto-scaling on API &amp; Dashboard pods</text>
+<circle cx="628" cy="566" r="3" fill="#EA580C"/>
+<text x="638" y="570" font-size="8" fill="#475569" font-family="Segoe UI, system-ui, sans-serif">MLflow Champion / Challenger model promotion</text>
+<circle cx="628" cy="582" r="3" fill="#7C3AED"/>
+<text x="638" y="586" font-size="8" fill="#475569" font-family="Segoe UI, system-ui, sans-serif">Terraform state: 8 modules across DEV / STG / PROD</text>
+
+<!-- DATA FLOW -->
+<rect x="20" y="500" width="572" height="96" rx="10" fill="#FAFAFA" stroke="#E2E8F0" stroke-width="1"/>
+<text x="34" y="520" font-size="9" font-weight="700" fill="#475569" letter-spacing="0.5" font-family="Segoe UI, system-ui, sans-serif">DATA FLOW</text>
+
+<g transform="translate(34, 530)">
+  <rect x="0" y="0" width="62" height="26" rx="5" fill="#ECFDF5" stroke="#059669" stroke-width="1"/>
+  <text x="31" y="11" text-anchor="middle" font-size="8" font-weight="600" fill="#059669" font-family="Segoe UI, system-ui, sans-serif">ADLS Gen2</text>
+  <text x="31" y="21" text-anchor="middle" font-size="7" fill="#64748B" font-family="Segoe UI, system-ui, sans-serif">Raw data</text>
+
+  <line x1="65" y1="13" x2="78" y2="13" stroke="#94A3B8" stroke-width="1.3" marker-end="url(#a5)"/>
+
+  <rect x="81" y="0" width="48" height="26" rx="5" fill="#FEF3C7" stroke="#B45309" stroke-width="1"/>
+  <text x="105" y="17" text-anchor="middle" font-size="9" font-weight="700" fill="#B45309" font-family="Segoe UI, system-ui, sans-serif">Bronze</text>
+
+  <line x1="132" y1="13" x2="145" y2="13" stroke="#94A3B8" stroke-width="1.3" marker-end="url(#a5)"/>
+
+  <rect x="148" y="0" width="48" height="26" rx="5" fill="#F1F5F9" stroke="#64748B" stroke-width="1"/>
+  <text x="172" y="17" text-anchor="middle" font-size="9" font-weight="700" fill="#64748B" font-family="Segoe UI, system-ui, sans-serif">Silver</text>
+
+  <line x1="199" y1="13" x2="212" y2="13" stroke="#94A3B8" stroke-width="1.3" marker-end="url(#a5)"/>
+
+  <rect x="215" y="0" width="48" height="26" rx="5" fill="#FEFCE8" stroke="#CA8A04" stroke-width="1"/>
+  <text x="239" y="17" text-anchor="middle" font-size="9" font-weight="700" fill="#CA8A04" font-family="Segoe UI, system-ui, sans-serif">Gold</text>
+
+  <line x1="266" y1="13" x2="279" y2="13" stroke="#94A3B8" stroke-width="1.3" marker-end="url(#a5)"/>
+
+  <rect x="282" y="0" width="55" height="26" rx="5" fill="#EFF6FF" stroke="#0D6EFD" stroke-width="1"/>
+  <text x="309" y="11" text-anchor="middle" font-size="8" font-weight="600" fill="#0D6EFD" font-family="Segoe UI, system-ui, sans-serif">MLflow</text>
+  <text x="309" y="21" text-anchor="middle" font-size="7" fill="#64748B" font-family="Segoe UI, system-ui, sans-serif">Score</text>
+
+  <line x1="340" y1="13" x2="353" y2="13" stroke="#94A3B8" stroke-width="1.3" marker-end="url(#a5)"/>
+
+  <rect x="356" y="0" width="58" height="26" rx="5" fill="#E0F2F1" stroke="#009688" stroke-width="1"/>
+  <text x="385" y="11" text-anchor="middle" font-size="8" font-weight="600" fill="#009688" font-family="Segoe UI, system-ui, sans-serif">FastAPI</text>
+  <text x="385" y="21" text-anchor="middle" font-size="7" fill="#64748B" font-family="Segoe UI, system-ui, sans-serif">Serve</text>
+
+  <line x1="417" y1="13" x2="430" y2="13" stroke="#94A3B8" stroke-width="1.3" marker-end="url(#a5)"/>
+
+  <rect x="433" y="0" width="78" height="26" rx="5" fill="#FEF2F2" stroke="#FF4B4B" stroke-width="1"/>
+  <text x="472" y="11" text-anchor="middle" font-size="8" font-weight="600" fill="#FF4B4B" font-family="Segoe UI, system-ui, sans-serif">Streamlit</text>
+  <text x="472" y="21" text-anchor="middle" font-size="7" fill="#64748B" font-family="Segoe UI, system-ui, sans-serif">Dashboard</text>
+</g>
+
+</svg>
+
+<p align="center"><sub>Infrastructure managed by Terraform (8 modules) · CI/CD via Azure DevOps · 3 environments (DEV / STG / PROD)</sub></p>
 
 ---
 
