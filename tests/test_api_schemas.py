@@ -90,6 +90,7 @@ class TestPredictionResponse:
             action_owner="Loyalty",
             action_sla="24h",
             scored_at="2024-01-01T00:00:00Z",
+            request_id="abc12345",
         )
         assert resp.risk_tier == "RED"
         assert len(resp.predictions) == 1
@@ -114,6 +115,7 @@ class TestModelInfo:
             loaded_at="2024-01-01T00:00:00Z",
             model_count=3,
             horizons=[30, 60, 90],
+            failed_horizons=[],
             thresholds={"red_30d": 0.5, "amber_60d": 0.5, "yellow_90d": 0.5},
         )
         assert info.model_count == 3

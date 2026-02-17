@@ -102,7 +102,9 @@ class TestLoadModels:
         model_metadata.clear()
 
         mock_booster = MagicMock()
+        mock_booster.predict.return_value = [0.5]
         with patch("main.os.path.exists", return_value=True), \
+             patch("main.os.path.getsize", return_value=50000), \
              patch("main.lgb.Booster", return_value=mock_booster):
             load_models()
 

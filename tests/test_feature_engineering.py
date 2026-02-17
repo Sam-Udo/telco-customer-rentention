@@ -104,7 +104,10 @@ class TestTargetLabels:
                     "left"
                 )
                 .groupBy(F.col("s.unique_customer_identifier"), F.col("s.datevalue"))
-                .agg(F.max(F.when(F.col("c.cease_placed_date").isNotNull(), 1).otherwise(0)).alias(f"churned_in_{days}d"))
+                .agg(
+                    F.max(F.when(F.col("c.cease_placed_date").isNotNull(), 1).otherwise(0))
+                    .alias(f"churned_in_{days}d")
+                )
             )
             results[days] = labels.collect()[0][f"churned_in_{days}d"]
 
