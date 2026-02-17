@@ -25,13 +25,9 @@ stages:
       - job: LintAndFormat
         displayName: "Lint & Format Check"
         steps:
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: $(pythonVersion)
-            displayName: "Set Python $(pythonVersion)"
-
           - script: |
-              pip install ruff black isort
+              python3 -m pip install --upgrade pip
+              pip3 install ruff black isort
             displayName: "Install lint tools"
 
           - script: |
@@ -55,18 +51,13 @@ stages:
       - job: RunPySparkTests
         displayName: "Run PySpark Unit Tests"
         steps:
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: $(pythonVersion)
-            displayName: "Set Python $(pythonVersion)"
-
           - script: |
-              pip install -r requirements.txt
-              pip install pytest pytest-cov pytest-html
+              python3 -m pip install --upgrade pip
+              pip3 install -r requirements.txt
+              pip3 install pytest pytest-cov pytest-html
             displayName: "Install dependencies"
 
           - script: |
-              export JAVA_HOME=$(JAVA_HOME_11_X64)
               pytest tests/test_silver_transforms.py tests/test_feature_engineering.py \
                 -v \
                 --tb=short \
@@ -94,18 +85,13 @@ stages:
       - job: RunIntegrationTests
         displayName: "Run Integration Tests"
         steps:
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: $(pythonVersion)
-            displayName: "Set Python $(pythonVersion)"
-
           - script: |
-              pip install -r requirements.txt
-              pip install -r requirements-test.txt
+              python3 -m pip install --upgrade pip
+              pip3 install -r requirements.txt
+              pip3 install -r requirements-test.txt
             displayName: "Install dependencies"
 
           - script: |
-              export JAVA_HOME=$(JAVA_HOME_11_X64)
               pytest tests/test_integration.py \
                 -v \
                 --tb=short \
@@ -124,13 +110,9 @@ stages:
       - job: RunAPITests
         displayName: "Run API Error Handling Tests"
         steps:
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: $(pythonVersion)
-            displayName: "Set Python $(pythonVersion)"
-
           - script: |
-              pip install -r requirements-test.txt
+              python3 -m pip install --upgrade pip
+              pip3 install -r requirements-test.txt
             displayName: "Install API test dependencies"
 
           - script: |
@@ -165,15 +147,6 @@ stages:
       - job: ValidateNotebooks
         displayName: "Validate Databricks Notebooks"
         steps:
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: $(pythonVersion)
-            displayName: "Set Python $(pythonVersion)"
-
-          - script: |
-              pip install databricks-cli
-            displayName: "Install Databricks CLI"
-
           - script: |
               for nb in notebooks/*.py; do
                 if head -1 "$nb" | grep -q "# Databricks notebook source"; then
@@ -187,10 +160,10 @@ stages:
             displayName: "Validate notebook format"
 
           - script: |
-              python -m py_compile src/risk_tiers.py
-              python -m py_compile src/__init__.py
+              python3 -m py_compile src/risk_tiers.py
+              python3 -m py_compile src/__init__.py
               for nb in notebooks/*.py; do
-                sed 's/# MAGIC.*//g' "$nb" | python -c "
+                sed 's/# MAGIC.*//g' "$nb" | python3 -c "
               import sys, ast
               try:
                   ast.parse(sys.stdin.read())
