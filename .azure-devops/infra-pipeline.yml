@@ -27,7 +27,7 @@ variables:
   - name: workingDirectory
     value: "$(System.DefaultWorkingDirectory)/infrastructure"
   - name: TF_PLUGIN_CACHE_DIR
-    value: "$(HOME)/.terraform.d/plugin-cache"
+    value: "/Users/kanaanudo/.terraform.d/plugin-cache"
 
 stages:
   - stage: Validate

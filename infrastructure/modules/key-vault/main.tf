@@ -25,9 +25,9 @@ resource "azurerm_key_vault" "main" {
   enable_rbac_authorization  = true
 
   network_acls {
-    default_action = "Deny"
+    default_action = var.environment == "prod" ? "Deny" : "Allow"
     bypass         = "AzureServices"
-    ip_rules       = var.allowed_ips # Whitelist specific IPs for deployment
+    ip_rules       = var.allowed_ips
   }
 
   tags = var.tags
