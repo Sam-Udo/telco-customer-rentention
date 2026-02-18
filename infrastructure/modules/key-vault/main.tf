@@ -40,8 +40,12 @@ resource "azurerm_role_assignment" "kv_secrets_officer" {
   role_definition_name = "Key Vault Secrets Officer"
   principal_id         = data.azurerm_client_config.current.object_id
 
-  # Add dependency to ensure KV is fully created first
   depends_on = [azurerm_key_vault.main]
+}
+
+resource "time_sleep" "wait_for_rbac" {
+  depends_on      = [azurerm_role_assignment.kv_secrets_officer]
+  create_duration = "60s"
 }
 
 #  Private Endpoint ──
@@ -63,7 +67,8 @@ resource "azurerm_private_endpoint" "key_vault" {
 
 #  Outputs ──
 output "key_vault_id" {
-  value = azurerm_key_vault.main.id
+  value      = azurerm_key_vault.main.id
+  depends_on = [time_sleep.wait_for_rbac]
 }
 
 output "key_vault_name" {
