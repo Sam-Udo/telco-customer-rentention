@@ -8,7 +8,7 @@ vnet_address_space = ["10.2.0.0/16"]
 databricks_sku     = "premium"
 metastore_id       = "0ff81767-3ec8-4fa1-b5d2-2680da343f16"
 
-allowed_ips = ["151.240.254.33"]
+allowed_ips = ["151.240.254.33", "86.145.28.123"]
 
 # AKS node pool sizing
 aks_kubernetes_version = "1.32"
