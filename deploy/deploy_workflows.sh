@@ -16,7 +16,7 @@
 set -euo pipefail
 
 echo "═══════════════════════════════════════════════════"
-echo "  Deploying Workflow to ${TARGET_ENV^^}"
+echo "  Deploying Workflow to $(echo "${TARGET_ENV}" | tr '[:lower:]' '[:upper:]')"
 echo "  Workspace: ${DATABRICKS_HOST}"
 echo "═══════════════════════════════════════════════════"
 
@@ -144,5 +144,5 @@ fi
 rm -f "${TEMP_WORKFLOW}"
 
 echo ""
-echo "Workflow deployment complete for ${TARGET_ENV^^}."
+echo "Workflow deployment complete for $(echo "${TARGET_ENV}" | tr '[:lower:]' '[:upper:]')."
 exit 0
