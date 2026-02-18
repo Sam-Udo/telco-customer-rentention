@@ -102,8 +102,8 @@ stages:
                     cd k8s/overlays/dev
                     if command -v kustomize &>/dev/null; then
                       kustomize edit set image \
-                        churn-api=$(ACR_LOGIN_SERVER)/$(apiImageName):$(imageTag) \
-                        churn-dashboard=$(ACR_LOGIN_SERVER)/$(dashboardImageName):$(imageTag)
+                        "ACR_PLACEHOLDER/churn-api=$(ACR_LOGIN_SERVER)/$(apiImageName):$(imageTag)" \
+                        "ACR_PLACEHOLDER/churn-dashboard=$(ACR_LOGIN_SERVER)/$(dashboardImageName):$(imageTag)"
                       kustomize build . | kubectl apply -f -
                     else
                       kubectl kustomize . | kubectl apply -f -

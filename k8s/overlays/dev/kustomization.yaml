@@ -99,6 +99,6 @@ patches:
 
 images:
   - name: ACR_PLACEHOLDER/churn-api
-    newName: telcochurncrdev.azurecr.io/churn-api
+    newName: telcochurnsacrdev.azurecr.io/churn-api
   - name: ACR_PLACEHOLDER/churn-dashboard
-    newName: telcochurncrdev.azurecr.io/churn-dashboard
+    newName: telcochurnsacrdev.azurecr.io/churn-dashboard

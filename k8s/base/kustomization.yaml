@@ -18,10 +18,8 @@ resources:
   - dashboard-hpa.yaml
   - pdb.yaml
   - resource-quotas.yaml
-  - cert-manager.yaml
   - ingress.yaml
   - network-policies.yaml
-  - monitoring/
 
 labels:
   - pairs:
