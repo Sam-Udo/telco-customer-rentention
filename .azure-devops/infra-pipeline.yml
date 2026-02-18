@@ -26,6 +26,8 @@ variables:
     value: "1.7.0"
   - name: workingDirectory
     value: "$(System.DefaultWorkingDirectory)/infrastructure"
+  - name: TF_PLUGIN_CACHE_DIR
+    value: "$(HOME)/.terraform.d/plugin-cache"
 
 stages:
   - stage: Validate
@@ -34,6 +36,7 @@ stages:
       - job: ValidateTerraform
         steps:
           - script: |
+              mkdir -p $(TF_PLUGIN_CACHE_DIR)
               if ! terraform version 2>/dev/null; then
                 echo "Installing Terraform $(terraformVersion)..."
                 brew tap hashicorp/tap
