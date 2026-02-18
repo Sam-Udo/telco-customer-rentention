@@ -90,19 +90,17 @@
     },
     {
       "task_key": "model_retrain",
-      "description": "Retrain models (triggered monthly or on drift alert)",
+      "description": "Retrain models if monitoring flags drift (conditional logic inside notebook)",
       "depends_on": [
         {"task_key": "monitoring"}
       ],
-      "condition_task": {
-        "op": "EQUAL_TO",
-        "left": "{{tasks.monitoring.values.retrain_needed}}",
-        "right": "true"
-      },
       "notebook_task": {
         "notebook_path": "/Repos/telco-churn/notebooks/04_model_training",
         "source": "WORKSPACE"
-      }
+      },
+      "job_cluster_key": "ml_cluster",
+      "timeout_seconds": 10800,
+      "max_retries": 0
     }
   ],
   "job_clusters": [
