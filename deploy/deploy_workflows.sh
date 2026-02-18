@@ -23,7 +23,7 @@ echo "════════════════════════�
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 WORKFLOW_TEMPLATE="${REPO_ROOT}/workflows/churn_pipeline.json"
-WORKSPACE_PATH="/Repos/telco-churn-${TARGET_ENV}"
+WORKSPACE_PATH="/Workspace/telco-churn-${TARGET_ENV}"
 
 # ── Configure Databricks CLI ──
 export DATABRICKS_HOST="${DATABRICKS_HOST}"

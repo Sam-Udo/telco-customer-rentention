@@ -50,7 +50,7 @@ stages:
                 -t $(ACR_LOGIN_SERVER)/$(apiImageName):$(imageTag) \
                 -t $(ACR_LOGIN_SERVER)/$(apiImageName):latest \
                 -f serving/api/Dockerfile \
-                serving/api
+                serving
             displayName: "Build Churn API Image"
 
           - script: |
@@ -65,7 +65,7 @@ stages:
                 -t $(ACR_LOGIN_SERVER)/$(dashboardImageName):$(imageTag) \
                 -t $(ACR_LOGIN_SERVER)/$(dashboardImageName):latest \
                 -f serving/dashboard/Dockerfile \
-                serving/dashboard
+                serving
             displayName: "Build Dashboard Image"
 
           - script: |

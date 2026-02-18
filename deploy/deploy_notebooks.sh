@@ -10,7 +10,7 @@ echo "Catalog: ${CATALOG_NAME}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-WORKSPACE_PATH="/Repos/telco-churn-${TARGET_ENV}"
+WORKSPACE_PATH="/Workspace/telco-churn-${TARGET_ENV}"
 
 export DATABRICKS_HOST="${DATABRICKS_HOST}"
 export DATABRICKS_TOKEN="${DATABRICKS_TOKEN}"
