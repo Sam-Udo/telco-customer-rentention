@@ -102,9 +102,7 @@
       "notebook_task": {
         "notebook_path": "/Repos/telco-churn/notebooks/04_model_training",
         "source": "WORKSPACE"
-      },
-      "timeout_seconds": 10800,
-      "max_retries": 0
+      }
     }
   ],
   "job_clusters": [
