@@ -92,6 +92,10 @@ workflow['tags']['environment'] = '${TARGET_ENV}'
 json.dump(workflow, sys.stdout, indent=2)
 " > "${TEMP_WORKFLOW}"
 
+# Validate the patched JSON
+python3 -c "import json; json.load(open('${TEMP_WORKFLOW}'))" || { echo "ERROR: Invalid workflow JSON"; exit 1; }
+echo "  Patched JSON validated"
+
 # ── Check if job already exists (using CLI, not curl) ──
 echo "[2/3] Checking for existing job..."
 EXISTING_JOB_ID=$(databricks jobs list --output json 2>/dev/null | \
@@ -112,29 +116,23 @@ echo "[3/3] Deploying job..."
 if [ -n "${EXISTING_JOB_ID}" ]; then
     echo "  Updating existing job: ${EXISTING_JOB_ID}"
 
-    # Reset job with new settings
-    databricks jobs reset \
-        --job-id "${EXISTING_JOB_ID}" \
-        --json-file "${TEMP_WORKFLOW}" 2>&1
-
-    if [ $? -eq 0 ]; then
+    if RESULT=$(databricks jobs reset --job-id "${EXISTING_JOB_ID}" --json-file "${TEMP_WORKFLOW}" 2>&1); then
         echo "  Job updated: ${JOB_NAME} (ID: ${EXISTING_JOB_ID})"
     else
         echo "  ERROR: Failed to update job ${EXISTING_JOB_ID}"
+        echo "  ${RESULT}"
         rm -f "${TEMP_WORKFLOW}"
         exit 1
     fi
 else
     echo "  Creating new job..."
 
-    RESULT=$(databricks jobs create --json-file "${TEMP_WORKFLOW}" 2>&1)
-
-    if [ $? -eq 0 ]; then
+    if RESULT=$(databricks jobs create --json-file "${TEMP_WORKFLOW}" 2>&1); then
         NEW_JOB_ID=$(echo "${RESULT}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('job_id', 'unknown'))")
         echo "  Job created: ${JOB_NAME} (ID: ${NEW_JOB_ID})"
     else
         echo "  ERROR: Failed to create job"
-        echo "${RESULT}"
+        echo "  ${RESULT}"
         rm -f "${TEMP_WORKFLOW}"
         exit 1
     fi
