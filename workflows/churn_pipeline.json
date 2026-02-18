@@ -103,7 +103,6 @@
         "notebook_path": "/Repos/telco-churn/notebooks/04_model_training",
         "source": "WORKSPACE"
       },
-      "job_cluster_key": "ml_cluster",
       "timeout_seconds": 10800,
       "max_retries": 0
     }

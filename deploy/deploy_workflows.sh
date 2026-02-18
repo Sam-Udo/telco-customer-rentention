@@ -28,6 +28,7 @@ WORKSPACE_PATH="/Workspace/telco-churn-${TARGET_ENV}"
 # ── Configure Databricks CLI ──
 export DATABRICKS_HOST="${DATABRICKS_HOST}"
 export DATABRICKS_TOKEN="${DATABRICKS_TOKEN}"
+databricks jobs configure --version=2.1 2>/dev/null || true
 
 # ── Environment-specific overrides ──
 case "${TARGET_ENV}" in
