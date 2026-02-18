@@ -106,7 +106,7 @@ stages:
   - stage: DeployStaging
     displayName: "Deploy Infra — STAGING"
     dependsOn: DeployDev
-    condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     variables:
       - group: azure-infra-staging
     jobs:
@@ -153,7 +153,7 @@ stages:
   - stage: DeployProd
     displayName: "Deploy Infra — PRODUCTION"
     dependsOn: DeployStaging
-    condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     variables:
       - group: azure-infra-prod
     jobs:

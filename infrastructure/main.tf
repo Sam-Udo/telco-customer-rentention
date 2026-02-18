@@ -70,7 +70,7 @@ module "key_vault" {
   environment         = var.environment
   location            = var.location
   resource_group_name = "${var.resource_prefix}-security-${var.environment}"
-  key_vault_name      = "${var.resource_prefix}-kv-${var.environment}"
+  key_vault_name      = var.environment == "prod" ? "${var.resource_prefix}-vault-${var.environment}" : "${var.resource_prefix}-kv-${var.environment}"
   tenant_id           = data.azurerm_client_config.current.tenant_id
   vnet_subnet_id      = module.networking.private_endpoint_subnet_id
   allowed_ips         = var.allowed_ips
