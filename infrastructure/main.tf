@@ -64,6 +64,25 @@ module "storage" {
   tags                 = local.common_tags
 }
 
+# Shared landing storage — raw source data (created once, read by all environments)
+module "landing_storage" {
+  source = "./modules/landing-storage"
+  count  = var.create_landing_storage ? 1 : 0
+
+  storage_account_name = var.landing_storage_account_name
+  resource_group_name  = "${var.resource_prefix}-landing"
+  location             = var.location
+  tags                 = local.common_tags
+}
+
+# Data source to reference the shared landing storage when not creating it
+data "azurerm_storage_account" "landing" {
+  count = var.create_landing_storage ? 0 : 1
+
+  name                = var.landing_storage_account_name
+  resource_group_name = "${var.resource_prefix}-landing"
+}
+
 module "key_vault" {
   source = "./modules/key-vault"
 
@@ -99,11 +118,12 @@ module "databricks" {
 module "access_connector" {
   source = "./modules/access-connector"
 
-  access_connector_name = "${var.resource_prefix}-access-connector-${var.environment}"
-  resource_group_name   = module.databricks.resource_group_name
-  location              = var.location
-  storage_account_id    = module.storage.storage_account_id
-  tags                  = local.common_tags
+  access_connector_name      = "${var.resource_prefix}-access-connector-${var.environment}"
+  resource_group_name        = module.databricks.resource_group_name
+  location                   = var.location
+  storage_account_id         = module.storage.storage_account_id
+  landing_storage_account_id = local.landing_storage_account_id
+  tags                       = local.common_tags
 
   depends_on = [module.databricks]
 }
@@ -111,15 +131,16 @@ module "access_connector" {
 module "unity_catalog" {
   source = "./modules/unity-catalog"
 
-  environment              = var.environment
-  location                 = var.location
-  catalog_name             = var.environment == "prod" ? "uk_telecoms" : "uk_telecoms_${var.environment}"
-  metastore_id             = var.metastore_id
-  workspace_id             = module.databricks.workspace_number_id
-  access_connector_id      = module.access_connector.access_connector_id
-  storage_account_name     = module.storage.storage_account_name
-  storage_container        = module.storage.unity_catalog_container_name
-  databricks_workspace_url = module.databricks.workspace_url
+  environment                  = var.environment
+  location                     = var.location
+  catalog_name                 = var.environment == "prod" ? "uk_telecoms" : "uk_telecoms_${var.environment}"
+  metastore_id                 = var.metastore_id
+  workspace_id                 = module.databricks.workspace_number_id
+  access_connector_id          = module.access_connector.access_connector_id
+  storage_account_name         = module.storage.storage_account_name
+  storage_container            = module.storage.unity_catalog_container_name
+  landing_storage_account_name = local.landing_storage_account_name
+  databricks_workspace_url     = module.databricks.workspace_url
 
   depends_on = [module.databricks, module.access_connector]
 }
@@ -196,6 +217,14 @@ locals {
     team        = "data-engineering"
     cost_center = "analytics"
   }
+
+  landing_storage_account_id   = var.create_landing_storage ? module.landing_storage[0].storage_account_id : data.azurerm_storage_account.landing[0].id
+  landing_storage_account_name = var.landing_storage_account_name
+}
+
+output "landing_storage_account_name" {
+  value       = local.landing_storage_account_name
+  description = "Shared landing storage account name (raw data)"
 }
 
 output "databricks_workspace_url" {

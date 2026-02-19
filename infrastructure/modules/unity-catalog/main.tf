@@ -45,6 +45,13 @@ resource "databricks_external_location" "datalake" {
   comment         = "ADLS Gen2 storage for telco-churn ${var.environment}"
 }
 
+resource "databricks_external_location" "landing" {
+  name            = "telco-churn-landing-shared"
+  url             = "abfss://landing@${var.landing_storage_account_name}.dfs.core.windows.net/"
+  credential_name = databricks_storage_credential.external.name
+  comment         = "Shared landing zone — raw source data (read-only, shared across environments)"
+}
+
 resource "databricks_catalog" "main" {
   name         = var.catalog_name
   comment      = "Telco Customer Churn — ${var.environment} environment"

@@ -27,8 +27,9 @@
 
 # COMMAND ----------
 
-# Source data location — ADLS Gen2 direct access via Unity Catalog external location
-LANDING_PATH = "abfss://landing@telcochurnsaprod.dfs.core.windows.net"
+# Source data location — shared landing storage (same for all environments)
+LANDING_STORAGE = spark.conf.get("spark.telco.landing_storage", "telcochurnsalanding")
+LANDING_PATH = f"abfss://landing@{LANDING_STORAGE}.dfs.core.windows.net"
 
 # COMMAND ----------
 

@@ -109,3 +109,15 @@ variable "aks_workload_max_nodes" {
   description = "Maximum nodes in AKS workload pool"
   default     = 5
 }
+
+variable "landing_storage_account_name" {
+  type        = string
+  description = "Shared landing storage account name (read-only raw data, shared across all environments)"
+  default     = "telcochurnsalanding"
+}
+
+variable "create_landing_storage" {
+  type        = bool
+  description = "Whether to create the shared landing storage account (set true for one environment only, e.g. dev)"
+  default     = false
+}

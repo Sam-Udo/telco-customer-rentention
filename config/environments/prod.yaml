@@ -11,8 +11,9 @@ schemas:
   gold: gold
   ml: ml
 
-# Data paths (production storage account)
-landing_path: "/mnt/landing"
+# Data paths (shared landing storage — same raw data for all environments)
+landing_storage_account: telcochurnsalanding
+landing_path: "abfss://landing@telcochurnsalanding.dfs.core.windows.net"
 
 # Cluster sizing (production scale)
 clusters:

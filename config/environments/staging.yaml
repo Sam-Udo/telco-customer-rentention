@@ -11,8 +11,9 @@ schemas:
   gold: gold
   ml: ml
 
-# Data paths (staging uses full production data copy or shared read-only mount)
-landing_path: "/mnt/landing-staging"
+# Data paths (shared landing storage — same raw data for all environments)
+landing_storage_account: telcochurnsalanding
+landing_path: "abfss://landing@telcochurnsalanding.dfs.core.windows.net"
 
 # Cluster sizing (production-like but still conservative)
 clusters:

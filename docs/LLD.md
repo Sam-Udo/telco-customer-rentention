@@ -66,11 +66,12 @@ Master entity: `customer_info` (202,782 unique customers). 100% of cease/calls c
 | Module | Path | Resources Created |
 |--------|------|-------------------|
 | `networking` | `modules/networking/` | VNet, 4 subnets, 3 NSGs |
-| `storage` | `modules/storage/` | ADLS Gen2 (HNS), 5 containers, private endpoint |
+| `storage` | `modules/storage/` | ADLS Gen2 (HNS), 4 containers (delta, unity-catalog, mlflow-artifacts, checkpoints), private endpoint |
+| `landing-storage` | `modules/landing-storage/` | Shared ADLS Gen2 landing account (`telcochurnsalanding`), 1 container. Created once (DEV only), referenced by all environments |
 | `key-vault` | `modules/key-vault/` | Key Vault, private endpoint, diagnostic logs |
 | `databricks` | `modules/databricks/` | Premium workspace (VNet-injected), service principal, RBAC |
-| `access-connector` | `modules/access-connector/` | SystemAssigned identity for UC → ADLS access |
-| `unity-catalog` | `modules/unity-catalog/` | Catalog, 4 schemas, storage credential, external location |
+| `access-connector` | `modules/access-connector/` | SystemAssigned identity for UC → ADLS access (per-env + shared landing read) |
+| `unity-catalog` | `modules/unity-catalog/` | Catalog, 4 schemas, storage credential, 2 external locations (per-env + shared landing) |
 | `acr` | `modules/acr/` | Container Registry (Basic dev/staging, Premium prod with geo-replication) |
 | `aks` | `modules/aks/` | K8s cluster, 2 node pools, workload identity, Container Insights |
 | `monitoring` | `modules/monitoring/` | Log Analytics, diagnostic settings (Databricks + Storage), alert rules |
@@ -85,7 +86,8 @@ Examples:
   vnet-telco-churn-prod         (VNet)
   snet-dbx-public-prod          (Subnet)
   nsg-aks-prod                  (NSG)
-  telcochurnsaprod              (Storage — no hyphens)
+  telcochurnsaprod              (Storage — no hyphens, per-env)
+  telcochurnsalanding           (Shared landing storage — all envs)
   telco-churn-dbx-prod          (Databricks workspace)
   telco-churn-kv-prod           (Key Vault)
   telco-churn-la-prod           (Log Analytics)
@@ -113,19 +115,30 @@ Examples:
 | **Domain** | — | — | telco-churn.xyz |
 | **Terraform State Key** | dev.terraform.tfstate | staging.terraform.tfstate | prod.terraform.tfstate |
 
-### 2.4 Storage Account (ADLS Gen2)
+### 2.4 Storage Accounts (ADLS Gen2)
 
-**Account:** `telcochurnsa{env}` (HNS enabled, TLS 1.2 minimum)
+#### Per-Environment Account: `telcochurnsa{env}`
+
+HNS enabled, TLS 1.2 minimum. Processed data only — no raw source files.
 
 | Container | Access | Contents |
 |-----------|--------|----------|
-| `landing` | Private | Raw source files (4 files: customer_info.parquet, usage.parquet, calls.csv, cease.csv) |
 | `delta` | Private | Delta Lake tables (Bronze/Silver/Gold managed tables) |
 | `unity-catalog` | Private | Unity Catalog managed storage (catalog data) |
 | `mlflow-artifacts` | Private | MLflow experiment artifacts (models, metrics, plots) |
 | `checkpoints` | Private | Auto Loader / DLT streaming checkpoints |
 
 Private endpoint: `pe-{storage_account_name}` via `dfs` subresource on private endpoints subnet.
+
+#### Shared Landing Account: `telcochurnsalanding`
+
+Single ADLS Gen2 account (HNS enabled, GRS, TLS 1.2) holding raw source data. Created once by the DEV Terraform run (`create_landing_storage = true`); staging and prod reference it via `data` source. All environments read from the same landing zone — data is uploaded once.
+
+| Container | Access | Contents |
+|-----------|--------|----------|
+| `landing` | Private | Raw source files (customer_info.parquet, usage.parquet, calls.csv, cease.csv) |
+
+Each environment's access connector gets `Storage Blob Data Reader` on this account for read-only access.
 
 ### 2.5 vCPU Quota Management (PROD)
 
@@ -288,12 +301,14 @@ Catalog: uk_telecoms  (prod) / uk_telecoms_{env} (dev/staging)
 **Pattern:** Bulk load from ADLS → Delta (assessment). Production uses Auto Loader via DLT.
 
 ```
-Source: abfss://landing@telcochurnsaprod.dfs.core.windows.net/
+Source: abfss://landing@telcochurnsalanding.dfs.core.windows.net/  (shared landing account)
   ├── customer_info.parquet  →  uk_telecoms.bronze.raw_customer_info
   ├── usage.parquet          →  uk_telecoms.bronze.raw_usage
   ├── calls.csv              →  uk_telecoms.bronze.raw_calls
   └── cease.csv              →  uk_telecoms.bronze.raw_cease
 ```
+
+**Storage parameterisation:** The notebook uses `spark.conf.get("spark.telco.landing_storage", "telcochurnsalanding")` so the landing account name can be overridden at runtime. The `deploy_notebooks.sh` script also patches any remaining hardcoded per-env storage references.
 
 **Design decisions:**
 - `USE CATALOG uk_telecoms` (catalog pre-created by Terraform; `CREATE CATALOG` fails without metastore root storage)
@@ -931,11 +946,13 @@ Changes to serving/ or k8s/ → AKS Pipeline (Build → Push → Deploy per env)
 | Stage | Environment | Approval | Steps |
 |-------|-------------|----------|-------|
 | Deploy DEV | telco-churn-dev | Auto | deploy_notebooks.sh, deploy_workflows.sh |
+| Upload Data | Shared landing (`telcochurnsalanding`) | Auto | upload_data.sh (once, all envs read from same landing) |
 | Integration Tests | DEV cluster | Auto | run_integration_tests.py (Bronze + Silver E2E) |
 | Deploy STAGING | telco-churn-staging | Auto (after tests) | deploy_notebooks.sh, deploy_workflows.sh |
 | Deploy PROD | telco-churn-prod | **Manual (Lead DE + DS Manager)** | deploy_notebooks.sh, deploy_workflows.sh |
 
 **Catalog patching:** Non-prod environments replace `uk_telecoms` → `uk_telecoms_{env}` in notebook SQL.
+**Landing storage patching:** `deploy_notebooks.sh` also replaces any hardcoded per-env storage references (`telcochurnsadev`, `telcochurnsastaging`, `telcochurnsaprod`) with the shared `telcochurnsalanding` account.
 
 ### 8.4 Infrastructure Pipeline (`.azure-devops/infra-pipeline.yml`)
 
@@ -1018,7 +1035,8 @@ risk_thresholds:
 | Setting | DEV | STAGING | PROD |
 |---------|-----|---------|------|
 | catalog | uk_telecoms_dev | uk_telecoms_staging | uk_telecoms |
-| landing_path | /mnt/landing-dev | /mnt/landing-staging | /mnt/landing |
+| landing_storage_account | telcochurnsalanding | telcochurnsalanding | telcochurnsalanding |
+| landing_path | abfss://landing@telcochurnsalanding... | abfss://landing@telcochurnsalanding... | abfss://landing@telcochurnsalanding... |
 | etl_workers | 2 × DS3_v2 | 2 × DS4_v2 | 4 × DS4_v2 |
 | ml_workers | 1 × DS3_v2 | 1 × DS4_v2 | 2 × DS4_v2 |
 | schedule | PAUSED | PAUSED | UNPAUSED (monthly 06:00 UTC) |
@@ -1322,15 +1340,16 @@ telco-customer-rentention/
 │   ├── aks-pipeline.yml                         # Docker build → push → K8s deploy
 │   └── variable-groups.md                       # ADO variable group setup guide
 ├── infrastructure/
-│   ├── main.tf                                  # Root: 10 module invocations
-│   ├── variables.tf                             # Input variables (env, region, SKUs)
+│   ├── main.tf                                  # Root: 11 module invocations
+│   ├── variables.tf                             # Input variables (env, region, SKUs, landing)
 │   ├── modules/
 │   │   ├── networking/main.tf                   # VNet, 4 subnets, 3 NSGs
-│   │   ├── storage/main.tf                      # ADLS Gen2, 5 containers, PE
+│   │   ├── storage/main.tf                      # ADLS Gen2, 4 containers (no landing), PE
+│   │   ├── landing-storage/main.tf              # Shared landing ADLS Gen2 (created once in DEV)
 │   │   ├── key-vault/main.tf                    # KV, PE, diagnostics
 │   │   ├── databricks/main.tf                   # Premium workspace, SP, RBAC
-│   │   ├── access-connector/main.tf             # UC access connector
-│   │   ├── unity-catalog/main.tf                # Catalog, 4 schemas, external loc
+│   │   ├── access-connector/main.tf             # UC access connector + shared landing reader
+│   │   ├── unity-catalog/main.tf                # Catalog, 4 schemas, 2 external locations
 │   │   ├── acr/main.tf                          # Container Registry
 │   │   ├── aks/main.tf                          # K8s, 2 node pools, autoscaler
 │   │   ├── aks/workload-identity.tf             # Managed identities + federation
@@ -1422,7 +1441,7 @@ telco-customer-rentention/
 │   ├── preflight_check.sh                       # Pre-deployment validation
 │   ├── setup_terraform_backend.sh               # TF state bootstrap
 │   ├── configure_ado.sh                         # ADO project setup
-│   ├── upload_data.sh                           # Raw data → ADLS landing
+│   ├── upload_data.sh                           # Raw data → shared ADLS landing (telcochurnsalanding)
 │   ├── deploy_notebooks.sh                      # Notebooks → Databricks
 │   ├── deploy_workflows.sh                      # Jobs → Databricks
 │   ├── export_models_for_aks.py                 # MLflow → LightGBM .txt

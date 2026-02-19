@@ -35,13 +35,7 @@ resource "azurerm_storage_account" "datalake" {
   tags = var.tags
 }
 
-#  Containers ──
-resource "azurerm_storage_container" "landing" {
-  name                  = "landing"
-  storage_account_name  = azurerm_storage_account.datalake.name
-  container_access_type = "private"
-}
-
+# Containers (landing is in the shared landing-storage module)
 resource "azurerm_storage_container" "delta" {
   name                  = "delta"
   storage_account_name  = azurerm_storage_account.datalake.name
@@ -90,10 +84,6 @@ output "storage_account_id" {
 
 output "storage_account_name" {
   value = azurerm_storage_account.datalake.name
-}
-
-output "landing_container_name" {
-  value = azurerm_storage_container.landing.name
 }
 
 output "delta_container_name" {

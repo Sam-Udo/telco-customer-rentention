@@ -11,6 +11,9 @@ metastore_id       = "0ff81767-3ec8-4fa1-b5d2-2680da343f16"
 
 allowed_ips = ["151.240.254.33", "86.145.28.123"]
 
+# Shared landing storage (created by DEV, referenced here)
+landing_storage_account_name = "telcochurnsalanding"
+
 # AKS node pool sizing
 aks_kubernetes_version = "1.32"
 aks_system_vm_size     = "Standard_D2als_v7"

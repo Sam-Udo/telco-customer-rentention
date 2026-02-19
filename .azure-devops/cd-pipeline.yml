@@ -62,32 +62,29 @@ stages:
                     bash $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/deploy_workflows.sh
                   displayName: "Deploy workflow to DEV"
 
-  - stage: UploadDataDev
-    displayName: "Upload Data to DEV"
+  - stage: UploadData
+    displayName: "Upload Data to Shared Landing"
     dependsOn: DeployDev
-    variables:
-      - group: databricks-dev
     jobs:
       - job: UploadData
-        displayName: "Upload raw data to ADLS landing zone"
+        displayName: "Upload raw data to shared ADLS landing zone"
         steps:
           - download: ci-build
             artifact: telco-churn-release
 
           - script: |
-              TARGET_ENV=dev
-              STORAGE_ACCOUNT="telcochurnsa${TARGET_ENV}"
+              STORAGE_ACCOUNT="telcochurnsalanding"
 
               echo "Looking for data files in: $(DATA_FILES_PATH)"
               ls -lh $(DATA_FILES_PATH)/*.parquet $(DATA_FILES_PATH)/*.csv 2>/dev/null || true
 
               bash $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/upload_data.sh \
-                "${TARGET_ENV}" "${STORAGE_ACCOUNT}" "$(DATA_FILES_PATH)"
-            displayName: "Upload data files to ADLS DEV"
+                "shared" "${STORAGE_ACCOUNT}" "$(DATA_FILES_PATH)"
+            displayName: "Upload data files to shared landing storage"
 
   - stage: IntegrationTestDev
     displayName: "Integration Tests (DEV)"
-    dependsOn: UploadDataDev
+    dependsOn: UploadData
     variables:
       - group: databricks-dev
     jobs:
@@ -147,29 +144,9 @@ stages:
                     bash $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/deploy_workflows.sh
                   displayName: "Deploy workflow to STAGING"
 
-  - stage: UploadDataStaging
-    displayName: "Upload Data to STAGING"
-    dependsOn: DeployStaging
-    variables:
-      - group: databricks-staging
-    jobs:
-      - job: UploadData
-        displayName: "Upload raw data to ADLS landing zone"
-        steps:
-          - download: ci-build
-            artifact: telco-churn-release
-
-          - script: |
-              TARGET_ENV=staging
-              STORAGE_ACCOUNT="telcochurnsa${TARGET_ENV}"
-
-              bash $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/upload_data.sh \
-                "${TARGET_ENV}" "${STORAGE_ACCOUNT}" "$(DATA_FILES_PATH)"
-            displayName: "Upload data files to ADLS STAGING"
-
   - stage: DeployProd
     displayName: "Deploy to PRODUCTION"
-    dependsOn: UploadDataStaging
+    dependsOn: DeployStaging
     variables:
       - group: databricks-prod
     jobs:
@@ -214,22 +191,3 @@ stages:
                     echo "Deployed at: $(date -u)"
                   displayName: "Deployment confirmation"
 
-  - stage: UploadDataProd
-    displayName: "Upload Data to PROD"
-    dependsOn: DeployProd
-    variables:
-      - group: databricks-prod
-    jobs:
-      - job: UploadData
-        displayName: "Upload raw data to ADLS landing zone"
-        steps:
-          - download: ci-build
-            artifact: telco-churn-release
-
-          - script: |
-              TARGET_ENV=prod
-              STORAGE_ACCOUNT="telcochurnsa${TARGET_ENV}"
-
-              bash $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/upload_data.sh \
-                "${TARGET_ENV}" "${STORAGE_ACCOUNT}" "$(DATA_FILES_PATH)"
-            displayName: "Upload data files to ADLS PROD"

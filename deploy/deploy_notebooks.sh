@@ -47,6 +47,15 @@ if [ "${TARGET_ENV}" != "prod" ]; then
     find "${TEMP_DIR}" -name "*.bak" -delete
 fi
 
+# Patch any remaining hardcoded per-env storage references to shared landing
+find "${TEMP_DIR}" -name "*.py" -exec sed -i.bak \
+    "s/telcochurnsaprod\.dfs\.core\.windows\.net/telcochurnsalanding.dfs.core.windows.net/g" {} \;
+find "${TEMP_DIR}" -name "*.py" -exec sed -i.bak \
+    "s/telcochurnsadev\.dfs\.core\.windows\.net/telcochurnsalanding.dfs.core.windows.net/g" {} \;
+find "${TEMP_DIR}" -name "*.py" -exec sed -i.bak \
+    "s/telcochurnsastaging\.dfs\.core\.windows\.net/telcochurnsalanding.dfs.core.windows.net/g" {} \;
+find "${TEMP_DIR}" -name "*.bak" -delete
+
 # Upload notebooks
 echo "[3/4] Uploading notebooks..."
 UPLOAD_ERRORS=0

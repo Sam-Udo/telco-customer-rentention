@@ -11,8 +11,9 @@ schemas:
   gold: gold
   ml: ml
 
-# Data paths (DEV uses a smaller sample or the same data in a dev storage account)
-landing_path: "/mnt/landing-dev"
+# Data paths (shared landing storage — same raw data for all environments)
+landing_storage_account: telcochurnsalanding
+landing_path: "abfss://landing@telcochurnsalanding.dfs.core.windows.net"
 
 # Cluster sizing (smaller for cost)
 clusters:

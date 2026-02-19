@@ -20,6 +20,13 @@ resource "azurerm_role_assignment" "unity_catalog_storage" {
   principal_id         = azurerm_databricks_access_connector.unity_catalog.identity[0].principal_id
 }
 
+# Grant read access to the shared landing storage account
+resource "azurerm_role_assignment" "landing_storage_reader" {
+  scope                = var.landing_storage_account_id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = azurerm_databricks_access_connector.unity_catalog.identity[0].principal_id
+}
+
 output "access_connector_id" {
   value = azurerm_databricks_access_connector.unity_catalog.id
 }

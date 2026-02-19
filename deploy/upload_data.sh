@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # ══════════════════════════════════════════════════════════════
-# Upload Raw Data to Azure Storage Landing Zone
+# Upload Raw Data to Shared Landing Storage
 # ══════════════════════════════════════════════════════════════
-# Uploads the 4 raw source data files to the ADLS Gen2 landing
-# container for Bronze ingestion.
+# Uploads the 4 raw source data files to the shared ADLS Gen2
+# landing storage account. Data is uploaded once and read by
+# all environments (dev/staging/prod).
 #
-# Usage: ./deploy/upload_data.sh <environment> <storage_account>
-# Example: ./deploy/upload_data.sh dev telcochurnsadev
+# Usage: ./deploy/upload_data.sh <label> <storage_account> [data_path]
+# Example: ./deploy/upload_data.sh shared telcochurnsalanding /path/to/data
 # ══════════════════════════════════════════════════════════════
 
 set -euo pipefail
