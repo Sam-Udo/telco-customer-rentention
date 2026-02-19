@@ -35,7 +35,20 @@ def _api_headers() -> dict:
 def load_scores():
     """Load batch scores from CSV (exported from Delta Lake)."""
     if os.path.exists(SCORES_CSV_PATH):
-        df = pd.read_csv(SCORES_CSV_PATH)
+        df = pd.read_csv(
+            SCORES_CSV_PATH,
+            dtype={
+                "unique_customer_identifier": "str",
+                "risk_tier": "category",
+                "churn_prob_30d": "float32",
+                "churn_prob_60d": "float32",
+                "churn_prob_90d": "float32",
+                "risk_decile_30d": "int8",
+                "risk_decile_60d": "int8",
+                "risk_decile_90d": "int8",
+            },
+            parse_dates=["observation_date", "score_date"],
+        )
         return df
     return pd.DataFrame()
 
@@ -132,14 +145,10 @@ if page == "Executive Summary":
 
     with chart_col2:
         st.subheader("Churn Probability Distributions by Horizon")
-        prob_data = []
-        for h in HORIZONS:
-            col_name = f"churn_prob_{h}d"
-            if col_name in df.columns:
-                for val in df[col_name].dropna():
-                    prob_data.append({"Horizon": f"{h}-day", "Probability": val})
-        if prob_data:
-            prob_df = pd.DataFrame(prob_data)
+        prob_cols = [f"churn_prob_{h}d" for h in HORIZONS if f"churn_prob_{h}d" in df.columns]
+        if prob_cols:
+            prob_df = df[prob_cols].melt(var_name="Horizon", value_name="Probability").dropna()
+            prob_df["Horizon"] = prob_df["Horizon"].str.replace("churn_prob_", "").str.replace("d", "-day")
             fig_hist = px.histogram(
                 prob_df, x="Probability", color="Horizon",
                 nbins=50, barmode="overlay", opacity=0.7,
