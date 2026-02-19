@@ -108,7 +108,7 @@
       "job_cluster_key": "etl_cluster",
       "new_cluster": {
         "spark_version": "14.3.x-scala2.12",
-        "node_type_id": "Standard_D4s_v3",
+        "node_type_id": "Standard_D4as_v7",
         "num_workers": 4,
         "spark_conf": {
           "spark.sql.adaptive.enabled": "true",
@@ -125,7 +125,7 @@
       "job_cluster_key": "ml_cluster",
       "new_cluster": {
         "spark_version": "14.3.x-ml-scala2.12",
-        "node_type_id": "Standard_D4s_v3",
+        "node_type_id": "Standard_D4as_v7",
         "num_workers": 2,
         "spark_conf": {
           "spark.sql.adaptive.enabled": "true"

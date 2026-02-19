@@ -33,13 +33,13 @@ export DATABRICKS_TOKEN="${DATABRICKS_TOKEN}"
 case "${TARGET_ENV}" in
     dev)
         JOB_NAME="telco_churn_pipeline_DEV"
-        NUM_WORKERS_ETL=2
+        NUM_WORKERS_ETL=1
         NUM_WORKERS_ML=1
         SCHEDULE_PAUSE="PAUSED"
         ;;
     staging)
         JOB_NAME="telco_churn_pipeline_STAGING"
-        NUM_WORKERS_ETL=2
+        NUM_WORKERS_ETL=1
         NUM_WORKERS_ML=1
         SCHEDULE_PAUSE="PAUSED"
         ;;
