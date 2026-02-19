@@ -22,7 +22,7 @@ VALIDATION_NOTEBOOKS = [
 
 CLUSTER_SPEC = {
     "spark_version": "14.3.x-scala2.12",
-    "node_type_id": "Standard_D4s_v3",
+    "node_type_id": "Standard_D4as_v7",
     "num_workers": 1,
     "spark_conf": {"spark.sql.adaptive.enabled": "true"},
     "custom_tags": {"purpose": "integration-test", "environment": TARGET_ENV},
