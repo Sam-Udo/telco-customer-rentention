@@ -20,7 +20,7 @@ variables:
   - name: CONDA_ACTIVATE
     value: "source ~/anaconda3/etc/profile.d/conda.sh && conda activate base"
   - name: DATA_FILES_PATH
-    value: "$(Build.SourcesDirectory)"
+    value: "/Users/kanaanudo/ado-agent/data"
 
 stages:
   - stage: DeployDev
@@ -71,8 +71,6 @@ stages:
       - job: UploadData
         displayName: "Upload raw data to ADLS landing zone"
         steps:
-          - checkout: self
-
           - download: ci-build
             artifact: telco-churn-release
 
@@ -158,8 +156,6 @@ stages:
       - job: UploadData
         displayName: "Upload raw data to ADLS landing zone"
         steps:
-          - checkout: self
-
           - download: ci-build
             artifact: telco-churn-release
 
@@ -227,8 +223,6 @@ stages:
       - job: UploadData
         displayName: "Upload raw data to ADLS landing zone"
         steps:
-          - checkout: self
-
           - download: ci-build
             artifact: telco-churn-release
 
