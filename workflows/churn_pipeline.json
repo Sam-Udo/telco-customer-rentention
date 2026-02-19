@@ -55,6 +55,9 @@
         "source": "WORKSPACE"
       },
       "job_cluster_key": "ml_cluster",
+      "libraries": [
+        {"pypi": {"package": "databricks-feature-engineering"}}
+      ],
       "timeout_seconds": 7200,
       "max_retries": 1,
       "retry_on_timeout": true
@@ -70,6 +73,10 @@
         "source": "WORKSPACE"
       },
       "job_cluster_key": "ml_cluster",
+      "libraries": [
+        {"pypi": {"package": "mlflow"}},
+        {"pypi": {"package": "lightgbm"}}
+      ],
       "timeout_seconds": 3600,
       "max_retries": 1,
       "retry_on_timeout": true
@@ -99,6 +106,11 @@
         "source": "WORKSPACE"
       },
       "job_cluster_key": "ml_cluster",
+      "libraries": [
+        {"pypi": {"package": "mlflow"}},
+        {"pypi": {"package": "lightgbm"}},
+        {"pypi": {"package": "shap"}}
+      ],
       "timeout_seconds": 10800,
       "max_retries": 0
     }
@@ -124,7 +136,7 @@
     {
       "job_cluster_key": "ml_cluster",
       "new_cluster": {
-        "spark_version": "14.3.x-cpu-ml-scala2.12",
+        "spark_version": "14.3.x-scala2.12",
         "node_type_id": "Standard_D4pds_v6",
         "num_workers": 2,
         "spark_conf": {
