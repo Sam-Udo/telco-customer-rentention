@@ -131,14 +131,14 @@ module "access_connector" {
 module "unity_catalog" {
   source = "./modules/unity-catalog"
 
-  environment                  = var.environment
-  location                     = var.location
-  catalog_name                 = var.environment == "prod" ? "uk_telecoms" : "uk_telecoms_${var.environment}"
-  metastore_id                 = var.metastore_id
-  workspace_id                 = module.databricks.workspace_number_id
-  access_connector_id          = module.access_connector.access_connector_id
-  storage_account_name         = module.storage.storage_account_name
-  storage_container            = module.storage.unity_catalog_container_name
+  environment                      = var.environment
+  location                         = var.location
+  catalog_name                     = var.environment == "prod" ? "uk_telecoms" : "uk_telecoms_${var.environment}"
+  metastore_id                     = var.metastore_id
+  workspace_id                     = module.databricks.workspace_number_id
+  access_connector_id              = module.access_connector.access_connector_id
+  storage_account_name             = module.storage.storage_account_name
+  storage_container                = module.storage.unity_catalog_container_name
   landing_storage_account_name     = local.landing_storage_account_name
   create_landing_external_location = var.create_landing_storage
   databricks_workspace_url         = module.databricks.workspace_url
