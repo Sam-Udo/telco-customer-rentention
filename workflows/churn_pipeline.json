@@ -54,7 +54,7 @@
         "notebook_path": "/Repos/telco-churn/notebooks/03_gold_features",
         "source": "WORKSPACE"
       },
-      "job_cluster_key": "etl_cluster",
+      "job_cluster_key": "ml_cluster",
       "timeout_seconds": 7200,
       "max_retries": 1,
       "retry_on_timeout": true
