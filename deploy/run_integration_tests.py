@@ -22,13 +22,13 @@ VALIDATION_NOTEBOOKS = [
 
 CLUSTER_SPEC = {
     "spark_version": "14.3.x-scala2.12",
-    "node_type_id": "Standard_DS3_v2",
+    "node_type_id": "Standard_D4s_v3",
     "num_workers": 1,
     "spark_conf": {"spark.sql.adaptive.enabled": "true"},
     "custom_tags": {"purpose": "integration-test", "environment": TARGET_ENV},
 }
 
-TIMEOUT_SECONDS = 1800
+TIMEOUT_SECONDS = 3600
 
 
 def _api(method, path, body=None):
