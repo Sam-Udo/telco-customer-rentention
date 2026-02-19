@@ -11,12 +11,15 @@
 
 set -euo pipefail
 
-TARGET_ENV="${1:?Usage: $0 <environment> <storage_account>}"
-STORAGE_ACCOUNT="${2:?Usage: $0 <environment> <storage_account>}"
+TARGET_ENV="${1:?Usage: $0 <environment> <storage_account> [data_path]}"
+STORAGE_ACCOUNT="${2:?Usage: $0 <environment> <storage_account> [data_path]}"
 CONTAINER="landing"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "${SCRIPT_DIR}")"
+
+# Optional 3rd arg: path to data files (defaults to repo root)
+DATA_PATH="${3:-${REPO_ROOT}}"
 
 # Files to upload (relative to repo root)
 FILES=(
@@ -40,7 +43,7 @@ FAIL=0
 TOTAL=${#FILES[@]}
 
 for file in "${FILES[@]}"; do
-    LOCAL_PATH="${REPO_ROOT}/${file}"
+    LOCAL_PATH="${DATA_PATH}/${file}"
     STEP=$((PASS + FAIL + 1))
 
     if [ ! -f "${LOCAL_PATH}" ]; then
