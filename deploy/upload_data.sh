@@ -53,6 +53,22 @@ for file in "${FILES[@]}"; do
     fi
 
     FILE_SIZE=$(du -h "${LOCAL_PATH}" | cut -f1)
+    LOCAL_BYTES=$(wc -c < "${LOCAL_PATH}" | tr -d ' ')
+
+    # Check if blob already exists with same size
+    REMOTE_BYTES=$(az storage blob show \
+        --account-name "${STORAGE_ACCOUNT}" \
+        --container-name "${CONTAINER}" \
+        --name "${file}" \
+        --query "properties.contentLength" \
+        --output tsv 2>/dev/null || echo "0")
+
+    if [ "${REMOTE_BYTES}" = "${LOCAL_BYTES}" ]; then
+        echo "[${STEP}/${TOTAL}] SKIP — ${file} (${FILE_SIZE}) already uploaded"
+        PASS=$((PASS + 1))
+        continue
+    fi
+
     echo -n "[${STEP}/${TOTAL}] Uploading ${file} (${FILE_SIZE})..."
 
     if az storage blob upload \
@@ -61,7 +77,8 @@ for file in "${FILES[@]}"; do
         --file "${LOCAL_PATH}" \
         --name "${file}" \
         --overwrite \
-        --timeout 600 \
+        --max-connections 1 \
+        --timeout 1800 \
         --output none 2>&1; then
         echo " OK"
         PASS=$((PASS + 1))
