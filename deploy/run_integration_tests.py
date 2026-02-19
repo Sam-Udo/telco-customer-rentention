@@ -22,7 +22,7 @@ VALIDATION_NOTEBOOKS = [
 
 CLUSTER_SPEC = {
     "spark_version": "14.3.x-scala2.12",
-    "node_type_id": "Standard_D4lds_v6",
+    "node_type_id": "Standard_D4ds_v5",
     "num_workers": 1,
     "spark_conf": {"spark.sql.adaptive.enabled": "true"},
     "custom_tags": {"purpose": "integration-test", "environment": TARGET_ENV},
@@ -42,8 +42,13 @@ def _api(method, path, body=None):
             "Content-Type": "application/json",
         },
     )
-    with urllib.request.urlopen(req) as resp:
-        return json.loads(resp.read())
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        print(f"  API Error: {e.code} {e.reason} — {body}", file=sys.stderr)
+        raise
 
 
 def run_notebook(notebook_path: str) -> bool:
