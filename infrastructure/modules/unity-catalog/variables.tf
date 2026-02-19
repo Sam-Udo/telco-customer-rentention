@@ -10,4 +10,9 @@ variable "landing_storage_account_name" {
   type        = string
   description = "Shared landing storage account name for raw data"
 }
+variable "create_landing_external_location" {
+  type        = bool
+  description = "Whether to create the shared landing external location (set true for one env only — metastore-level resource)"
+  default     = false
+}
 variable "databricks_workspace_url" { type = string }

@@ -46,6 +46,8 @@ resource "databricks_external_location" "datalake" {
 }
 
 resource "databricks_external_location" "landing" {
+  count = var.create_landing_external_location ? 1 : 0
+
   name            = "telco-churn-landing-shared"
   url             = "abfss://landing@${var.landing_storage_account_name}.dfs.core.windows.net/"
   credential_name = databricks_storage_credential.external.name

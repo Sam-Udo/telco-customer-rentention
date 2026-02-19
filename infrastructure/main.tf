@@ -139,8 +139,9 @@ module "unity_catalog" {
   access_connector_id          = module.access_connector.access_connector_id
   storage_account_name         = module.storage.storage_account_name
   storage_container            = module.storage.unity_catalog_container_name
-  landing_storage_account_name = local.landing_storage_account_name
-  databricks_workspace_url     = module.databricks.workspace_url
+  landing_storage_account_name     = local.landing_storage_account_name
+  create_landing_external_location = var.create_landing_storage
+  databricks_workspace_url         = module.databricks.workspace_url
 
   depends_on = [module.databricks, module.access_connector]
 }
