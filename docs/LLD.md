@@ -138,7 +138,7 @@ Single ADLS Gen2 account (HNS enabled, GRS, TLS 1.2) holding raw source data. Cr
 |-----------|--------|----------|
 | `landing` | Private | Raw source files (customer_info.parquet, usage.parquet, calls.csv, cease.csv) |
 
-Each environment's access connector gets `Storage Blob Data Reader` on this account for read-only access.
+Each environment's access connector gets `Storage Blob Data Contributor` on this account (required for Databricks external location validation).
 
 ### 2.5 vCPU Quota Management (PROD)
 
