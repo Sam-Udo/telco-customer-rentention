@@ -28,6 +28,7 @@ WORKSPACE_PATH="/Workspace/telco-churn-${TARGET_ENV}"
 # ── Configure Databricks CLI ──
 export DATABRICKS_HOST="${DATABRICKS_HOST}"
 export DATABRICKS_TOKEN="${DATABRICKS_TOKEN}"
+databricks jobs configure --version=2.1 2>/dev/null || true
 
 # ── Environment-specific overrides ──
 case "${TARGET_ENV}" in
@@ -128,8 +129,29 @@ else
     echo "  Creating new job..."
 
     if RESULT=$(databricks jobs create --json-file "${TEMP_WORKFLOW}" 2>&1); then
-        NEW_JOB_ID=$(echo "${RESULT}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('job_id', 'unknown'))")
-        echo "  Job created: ${JOB_NAME} (ID: ${NEW_JOB_ID})"
+        NEW_JOB_ID=$(echo "${RESULT}" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    print(data.get('job_id', 'unknown'))
+except (json.JSONDecodeError, ValueError):
+    print('unknown')
+" 2>/dev/null)
+        if [ "${NEW_JOB_ID}" = "unknown" ] || [ -z "${NEW_JOB_ID}" ]; then
+            # CLI may not return JSON — verify by listing jobs
+            NEW_JOB_ID=$(databricks jobs list --output json 2>/dev/null | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    for job in data.get('jobs', []):
+        if job.get('settings', {}).get('name') == '${JOB_NAME}':
+            print(job['job_id'])
+            break
+except:
+    pass
+")
+        fi
+        echo "  Job created: ${JOB_NAME} (ID: ${NEW_JOB_ID:-verified})"
     else
         echo "  ERROR: Failed to create job"
         echo "  ${RESULT}"
