@@ -74,9 +74,36 @@ stages:
               docker push $(ACR_LOGIN_SERVER)/$(dashboardImageName):latest
             displayName: "Push Dashboard Image"
 
+  - stage: SyncModelsDev
+    displayName: "Sync Models to AKS — DEV"
+    dependsOn: BuildAndPush
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    variables:
+      - group: aks-dev
+      - group: databricks-dev
+    jobs:
+      - job: SyncModels
+        displayName: "Download DBFS → Upload Azure File Share → Restart Pods"
+        steps:
+          - checkout: self
+
+          - script: |
+              pip install requests
+            displayName: "Install dependencies"
+
+          - script: |
+              export DATABRICKS_HOST=$(DATABRICKS_HOST)
+              export DATABRICKS_TOKEN=$(DATABRICKS_TOKEN)
+              export AKS_RESOURCE_GROUP=$(AKS_RESOURCE_GROUP)
+              export AKS_CLUSTER_NAME=$(AKS_CLUSTER_NAME)
+              export TARGET_ENV=dev
+
+              bash deploy/sync_models_to_aks.sh
+            displayName: "Sync models from Databricks to AKS"
+
   - stage: DeployDev
     displayName: "Deploy to AKS — DEV"
-    dependsOn: BuildAndPush
+    dependsOn: SyncModelsDev
     condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
     variables:
       - group: aks-dev
@@ -176,9 +203,35 @@ stages:
               "
             displayName: "Run API smoke tests"
 
+  - stage: SyncModelsStaging
+    displayName: "Sync Models to AKS — STAGING"
+    dependsOn: SmokeTestDev
+    variables:
+      - group: aks-staging
+      - group: databricks-staging
+    jobs:
+      - job: SyncModels
+        displayName: "Download DBFS → Upload Azure File Share → Restart Pods"
+        steps:
+          - checkout: self
+
+          - script: |
+              pip install requests
+            displayName: "Install dependencies"
+
+          - script: |
+              export DATABRICKS_HOST=$(DATABRICKS_HOST)
+              export DATABRICKS_TOKEN=$(DATABRICKS_TOKEN)
+              export AKS_RESOURCE_GROUP=$(AKS_RESOURCE_GROUP)
+              export AKS_CLUSTER_NAME=$(AKS_CLUSTER_NAME)
+              export TARGET_ENV=staging
+
+              bash deploy/sync_models_to_aks.sh
+            displayName: "Sync models from Databricks to AKS"
+
   - stage: DeployStaging
     displayName: "Deploy to AKS — STAGING"
-    dependsOn: SmokeTestDev
+    dependsOn: SyncModelsStaging
     variables:
       - group: aks-staging
     jobs:
@@ -207,9 +260,35 @@ stages:
                     kubectl get hpa -n telco-churn
                   displayName: "Verify STAGING deployment + HPA"
 
+  - stage: SyncModelsProd
+    displayName: "Sync Models to AKS — PRODUCTION"
+    dependsOn: DeployStaging
+    variables:
+      - group: aks-prod
+      - group: databricks-prod
+    jobs:
+      - job: SyncModels
+        displayName: "Download DBFS → Upload Azure File Share → Restart Pods"
+        steps:
+          - checkout: self
+
+          - script: |
+              pip install requests
+            displayName: "Install dependencies"
+
+          - script: |
+              export DATABRICKS_HOST=$(DATABRICKS_HOST)
+              export DATABRICKS_TOKEN=$(DATABRICKS_TOKEN)
+              export AKS_RESOURCE_GROUP=$(AKS_RESOURCE_GROUP)
+              export AKS_CLUSTER_NAME=$(AKS_CLUSTER_NAME)
+              export TARGET_ENV=prod
+
+              bash deploy/sync_models_to_aks.sh
+            displayName: "Sync models from Databricks to AKS"
+
   - stage: DeployProd
     displayName: "Deploy to AKS — PRODUCTION"
-    dependsOn: DeployStaging
+    dependsOn: SyncModelsProd
     variables:
       - group: aks-prod
     jobs:

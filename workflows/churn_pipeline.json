@@ -63,10 +63,30 @@
       "retry_on_timeout": true
     },
     {
+      "task_key": "model_training",
+      "description": "Train multi-horizon LightGBM models (30d/60d/90d) + register in UC",
+      "depends_on": [
+        {"task_key": "gold_features"}
+      ],
+      "notebook_task": {
+        "notebook_path": "/Repos/telco-churn/notebooks/04_model_training",
+        "source": "WORKSPACE"
+      },
+      "job_cluster_key": "ml_cluster",
+      "libraries": [
+        {"pypi": {"package": "mlflow"}},
+        {"pypi": {"package": "lightgbm"}},
+        {"pypi": {"package": "shap"}}
+      ],
+      "timeout_seconds": 10800,
+      "max_retries": 1,
+      "retry_on_timeout": true
+    },
+    {
       "task_key": "batch_scoring",
       "description": "Score all active customers with multi-horizon Champion models",
       "depends_on": [
-        {"task_key": "gold_features"}
+        {"task_key": "model_training"}
       ],
       "notebook_task": {
         "notebook_path": "/Repos/telco-churn/notebooks/05_batch_scoring",
@@ -82,10 +102,29 @@
       "retry_on_timeout": true
     },
     {
+      "task_key": "export_models",
+      "description": "Export Champion models to DBFS for AKS serving layer",
+      "depends_on": [
+        {"task_key": "batch_scoring"}
+      ],
+      "notebook_task": {
+        "notebook_path": "/Repos/telco-churn/notebooks/07_export_models",
+        "source": "WORKSPACE"
+      },
+      "job_cluster_key": "ml_cluster",
+      "libraries": [
+        {"pypi": {"package": "mlflow[databricks]"}},
+        {"pypi": {"package": "lightgbm"}}
+      ],
+      "timeout_seconds": 1800,
+      "max_retries": 1,
+      "retry_on_timeout": true
+    },
+    {
       "task_key": "monitoring",
       "description": "Run monitoring checks and alert logic",
       "depends_on": [
-        {"task_key": "batch_scoring"}
+        {"task_key": "export_models"}
       ],
       "notebook_task": {
         "notebook_path": "/Repos/telco-churn/notebooks/06_monitoring",
@@ -93,25 +132,6 @@
       },
       "job_cluster_key": "ml_cluster",
       "timeout_seconds": 1800,
-      "max_retries": 0
-    },
-    {
-      "task_key": "model_retrain",
-      "description": "Retrain models if monitoring flags drift (conditional logic inside notebook)",
-      "depends_on": [
-        {"task_key": "monitoring"}
-      ],
-      "notebook_task": {
-        "notebook_path": "/Repos/telco-churn/notebooks/04_model_training",
-        "source": "WORKSPACE"
-      },
-      "job_cluster_key": "ml_cluster",
-      "libraries": [
-        {"pypi": {"package": "mlflow"}},
-        {"pypi": {"package": "lightgbm"}},
-        {"pypi": {"package": "shap"}}
-      ],
-      "timeout_seconds": 10800,
       "max_retries": 0
     }
   ],

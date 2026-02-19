@@ -104,9 +104,106 @@ stages:
               python $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/run_integration_tests.py
             displayName: "Run integration test notebook on DEV cluster"
 
+  - stage: SyncModelsToAKS
+    displayName: "Sync Models to AKS (DEV)"
+    dependsOn: IntegrationTestDev
+    variables:
+      - group: databricks-dev
+      - group: aks-dev
+    jobs:
+      - job: ExportAndSync
+        displayName: "Export models from Databricks → Sync to AKS"
+        steps:
+          - download: ci-build
+            artifact: telco-churn-release
+
+          - script: |
+              $(CONDA_ACTIVATE)
+              pip install requests
+            displayName: "Install dependencies"
+
+          - script: |
+              $(CONDA_ACTIVATE)
+              export DATABRICKS_HOST=$(DATABRICKS_HOST)
+              export DATABRICKS_TOKEN=$(DATABRICKS_TOKEN)
+
+              echo "Triggering model export on Databricks..."
+              RESULT=$(python3 -c "
+import requests, json
+host = '$(DATABRICKS_HOST)'.rstrip('/')
+headers = {'Authorization': 'Bearer $(DATABRICKS_TOKEN)', 'Content-Type': 'application/json'}
+payload = {
+    'run_name': 'export_models_for_aks_cd',
+    'tasks': [{
+        'task_key': 'export',
+        'notebook_task': {
+            'notebook_path': '/Workspace/telco-churn-dev/notebooks/07_export_models',
+            'source': 'WORKSPACE'
+        },
+        'new_cluster': {
+            'spark_version': '14.3.x-scala2.12',
+            'node_type_id': 'Standard_D4pds_v6',
+            'num_workers': 0,
+            'data_security_mode': 'SINGLE_USER',
+            'spark_conf': {
+                'spark.master': 'local[*]',
+                'spark.databricks.cluster.profile': 'singleNode'
+            },
+            'custom_tags': {'ResourceClass': 'SingleNode'}
+        },
+        'libraries': [
+            {'pypi': {'package': 'mlflow[databricks]'}},
+            {'pypi': {'package': 'lightgbm'}}
+        ]
+    }]
+}
+resp = requests.post(f'{host}/api/2.1/jobs/runs/submit', headers=headers, json=payload)
+data = resp.json()
+print(data.get('run_id', ''))
+")
+              echo "Export run ID: ${RESULT}"
+
+              echo "Waiting for export to complete..."
+              python3 -c "
+import requests, time, sys
+host = '$(DATABRICKS_HOST)'.rstrip('/')
+headers = {'Authorization': 'Bearer $(DATABRICKS_TOKEN)'}
+run_id = '${RESULT}'
+for attempt in range(60):  # 10 minutes max
+    resp = requests.get(f'{host}/api/2.1/jobs/runs/get?run_id={run_id}', headers=headers)
+    state = resp.json().get('state', {})
+    lifecycle = state.get('life_cycle_state', 'UNKNOWN')
+    result = state.get('result_state', '')
+    print(f'  [{attempt+1}/60] {lifecycle} / {result}')
+    if lifecycle == 'TERMINATED':
+        if result == 'SUCCESS':
+            print('Export succeeded')
+            sys.exit(0)
+        else:
+            print(f'Export failed: {result}')
+            sys.exit(1)
+    if lifecycle == 'INTERNAL_ERROR':
+        print(f'Export failed: {lifecycle}')
+        sys.exit(1)
+    time.sleep(10)
+print('Timeout waiting for export')
+sys.exit(1)
+"
+            displayName: "Run model export on Databricks"
+
+          - script: |
+              export DATABRICKS_HOST=$(DATABRICKS_HOST)
+              export DATABRICKS_TOKEN=$(DATABRICKS_TOKEN)
+              export AKS_RESOURCE_GROUP=$(AKS_RESOURCE_GROUP)
+              export AKS_CLUSTER_NAME=$(AKS_CLUSTER_NAME)
+              export TARGET_ENV=dev
+
+              bash $(Pipeline.Workspace)/ci-build/telco-churn-release/deploy/sync_models_to_aks.sh
+            displayName: "Sync models to AKS DEV"
+
   - stage: DeployStaging
     displayName: "Deploy to STAGING"
-    dependsOn: IntegrationTestDev
+    dependsOn: SyncModelsToAKS
     variables:
       - group: databricks-staging
     jobs:
